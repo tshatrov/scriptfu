@@ -1,0 +1,51 @@
+<strong>January 13, 2013: BgMask 0.21 is released!</strong> Video tutorial: http://www.youtube.com/watch?v=h7uJUiyJ1yw
+
+This script adds several tools under Script-Fu - BgMask: "Extract background...", "Mask against background...", "Average linked layers...", and in BgMask 0.2 there are also "Extract background manually" and "Mask adjustments...". It can be used to mask moving objects/characters from animations with still background.
+
+Also check out my other script <a href="http://registry.gimp.org/node/26501">AnimStack</a> which is much more useful.
+
+<h3>Extract background...</h3>
+
+This tool is used to extract background from video frames. The background must be completely still! This is probably only useful with animations, I haven't tried with real life videos, but I imagine the results will be terrible!
+
+<img src="http://i.imgur.com/DH1ye.gif"></img>
+
+The video frames must be loaded as GIMP layers. They should be the same size. There should be nothing else in the image. The script creates a new image, using the following algorithm: for each pixel, the layers are compared to each other. The color that is closest to the greatest number of layers is chosen (within the threshold). Of course I don't actually do this pixel by pixel, it's done using complex math involving layer modes. It's actually quite slow if you have a lot of layers. This really should've been a plugin, but programming in C is no fun, so there we go.
+
+The new image created by the script will contain <i>all original layers</i> and a new background layer <i>at the bottom</i>. Don't miss it! There will probably be some artifacts if something stays in one place for too long. They are usually easy to spot.
+
+<h3>Mask against background...</h3>
+
+This one assumes that the bottom layer of the image is the background and above it are layers that need to be masked against it. Think chroma keying but with any background instead of green screen. The parameters are threshold and buffer. Any pixels with difference less than threshold will be 100% transparent. Any pixels with difference more than threshold+buffer will be 100% visible. Others will be in between. There is no preview, so you basically have to try several times until the mask is acceptable... You might be able to further improve the quality of the masks with "Mask adjustments" tool.
+
+<img src="http://i.imgur.com/0glbi.gif"></img>
+
+<h3>Average linked layers...</h3>
+
+This script averages pixel values for the selected (linked) layers. Select layers by clicking on the column next to the visibility column (eye icon). Linked layers will have chain icon next to them. There are options to delete the original layers and to remove transparency from result. This tool is just for fun! There's no useful purpose whatsoever. I had to code this procedure anyway due to the way "Extract background" works.
+
+The following tools are new in BgMask 0.2:
+
+<h3>Extract background manually</h3>
+
+You might have noticed that "Extract background" algorithm won't really work if the object you want to mask isn't moving across the screen. Even then, "Mask against background" can still be used to mask this object, if you somehow extract the background yourself. It's kind of annoying to do it in plain GIMP though. This is where this tool comes in. First, make sure you assign a keyboard shortcut to it (say, F4). Make sure nothing is selected and press it. You will notice a new layer group at the top, containing two layers: "Background alpha" and "Background buffer". 
+
+Every time you make a selection and press the key, the selected part of the topmost visible frame (not selected frame, this way you copy what you see!) is added to Background buffer ("from below", so older selections normally never get overwritten). Simultaneously, "Background alpha" is updated to show you which areas are already added to background. The color of Background alpha is initially your current background color, but you can recolor that layer at any time. Keep adding selections to the background buffer until you don't see anything to add. At this point, it might still have a hole/holes in it, which means that this part of the background is not visible in any frame. The quickest way to fill these holes with some color is to do "Remove Alpha Channel", which will fill them with background color. Make sure this color doesn't have anything in common with the foreground object you're trying to extract.
+
+In order to use "Mask against background" with this background, put "Background buffer" at the bottom of your layer stack, and remove "BgMask: select background" layer group.
+
+You can also fix the background produced by the automated "Extract background" tool. Remove the parts that aren't actually in the background (so they're transparent), and put it in place of "Background buffer" layer. Then fill these holes with actual background.
+
+<h3>Mask adjustments</h3>
+
+So, you did "Mask against background" and the results aren't very good, no matter what settings you try. Don't worry, there's still some hope left. Mask adjustments allow you to make these masks more presentable. There are several options, which are executed in order.
+
+<ul>
+<li>Transfer alpha channel to masks - since this tool works only on masks, it won't work if you already applied the masks... that is, unless you check this option. It simply adds a "transfer alpha channel" mask to every partially-transparent layer. Fully non-transparent layers are not affected.
+<li>Denoise - choose a value from 0 to 10. Removes "noisy" pixels using a special algorithm. 0 does nothing, 1 removes black pixels completely surrounded by white pixels and vice versa. 10 is strongest. This may help to get rid of holes and stray pixels.
+<li>Blur - simply uses gaussian blur on each mask. Effectively allows to "blend in" the edges.
+<li>Grow/shrink - the amount can be positive (to grow) or negative (to shrink). Grow can be used to fill the holes. Shrink can be used to tighten the edges (but if there are any holes, they will get way more noticeable!).
+<li>Apply masks - simply applies every top-level mask. This is reversible with "Transfer alpha channel to masks".
+</ul>
+
+GIMP remembers the last values you chose, and it might be annoying with this tool. Note that "Reset" button will restore the safe default values.

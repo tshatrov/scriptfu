@@ -1,0 +1,300 @@
+<img src="http://i.imgur.com/ewZDa.gif"></img>
+<strong>October 19, 2012 - AnimStack 0.5 is released! See release notes in the comment section.</strong>
+<p>
+Watch video tutorials here: http://www.youtube.com/playlist?list=PLiASt6bCYQNCRlWbGrwyPnmJlwIzMziEq
+</p>
+<p>
+Also check out the official AnimStack tumblr: http://animstack.tumblr.com/
+</p>
+<p>
+<strong>AnimStack</strong> is a collection of tools to simplify creating animations in GIMP. It makes heavy use of Layer Groups, introduced in GIMP 2.8.
+</p>
+<p>
+A simple example of a problem this script might solve: you have an animation, but you want to put some text on top of it. Normally you would have to add text to every frame manually, but with AnimStack this task is completely automated. AnimStack is perfect for post-processing your GIF animations and adding various simple effects to them.
+</p>
+<p>
+To get an overview of available features please watch the video: <a href="http://youtu.be/lHKx0g8xEl4">http://youtu.be/lHKx0g8xEl4</a>
+</p>
+<p>
+The main command of this script, "Process AnimStack Tags" is located in Filters &gt; Animation. Read more about how to use the tags below the cut.
+</p>
+<h2 id="sec-2">Bonus features </h2>
+<p>
+Because layer groups is a recently introduced feature of GIMP, working with them might be clunky. For that reason, I'm also bundling a few tools that might help dealing with them. The following tools are under Image menu:
+</p>
+<ul><li>
+Flatten Layer Groups (also packaged separately at <a href="http://registry.gimp.org/node/26479">http://registry.gimp.org/node/26479</a>)
+</li>
+<li>
+Reverse/Mirror layers - this tool allows to reverse the order of layers in an image or a layer group. The Mirror option keeps the original layers, but also adds those layers in reverse order above them except for the first and the last one (this effect is also known as Ping-pong). There is also an option to ignore layers that have AnimStack tags on them.
+</li>
+</ul><p>The next three tools are under Layer &gt; Group menu:
+</p>
+<ul><li>
+Pack linked layers - puts all linked layers in a layer group
+</li>
+<li>
+Copy linked layers - puts duplicates of all linked layers in a layer group
+</li>
+<li>
+Unpack layer group - puts all layers in a layer group outside of it
+</li>
+</ul>
+<h2 id="sec-3">The model </h2>
+<p>
+The main concept of AnimStack is a tag. There exist different types of tags: action tags, effect tags, generator tags and multiply tags. Each top-level layer or layer group might have one or several tags attached to it. To add a tag to a layer, put it in that layer's name. The order of the tags is significant, but their placement relative to the layer's original name isn't. All AnimStack tags are removed once they are processed, usually together with the layer they were on.
+</p>
+<h3 id="sec-3.1">Tag syntax </h3>
+<p>
+Tags are enclosed in square brackets. Each tag generally starts with an identifier and is followed by optional parameters, separated by ":". The exact nature of identifier and parameters differs for different types of tags.
+</p>
+<h4 id="sec-3.1.1">Multiply tags </h4>
+<p>
+Multiply tags are the simplest type of tag. The syntax is "[*<em>n</em>]" where <em>n</em> is a positive integer. For example "[*6]" is a valid multiply tag. Multiply tags accept no parameters.
+</p>
+<h4 id="sec-3.1.2">Action tags </h4>
+<p>
+Action tag is the default type of tag, and the most important one. The syntax is "[<em>action</em>:<em>param1</em>:<em>param2</em>:…]". All parameters must be integers. For example "[roll:1:10]" is a valid action tag. Action tags also permit a "." character before the action name (e.g. "[.roll:1:10]"). This makes an action "non-cumulative". Actions are "cumulative" by default.
+</p>
+<h4 id="sec-3.1.3">Generator tags </h4>
+<p>
+Generator tags allow to introduce variables to be used by effect tags. The syntax is "[<em>variable</em>=<em>generator</em>:<em>param1</em>:<em>param2</em>:…]". Each parameter must be a number. For example "[foo=cycle:0:10:20]" is a valid generator tag.
+</p>
+<p>
+  Since version 0.5, it is possible to add arithmetic adjustments to any generator. The syntax is "[<em>variable</em>=<em>offset</em>+<em>multiplier</em>*<em>generator</em>:…]". Either of "<em>offset</em>+" and "<em>multiplier</em>*" can be omitted.
+</p>
+<h4 id="sec-3.1.4">Effect tags </h4>
+<p>
+Effect tags have the most complicated syntax. First off, the tag's identifier must start with one of three symbols: "!", "-", "+". If the tag starts with "!", it's considered an "initial" effect, otherwise it's a "runtime" effect. Syntax for an initial effect is as follows: "[!<em>effect</em>:<em>param1</em>:…]". Syntax for a runtime effect is as follows: "[&lt;-/+&gt;<em>range</em>;<em>effect</em>:<em>param1</em>:…]". Range can be omitted (and usually is). Parameters must be numbers; in case of runtime effects, variables introduced by generator tags on the same layer are also allowed. The following are examples of valid effect tags: "[!scale:0.5]", "[-scale:x]", "[+move:10:y]".
+</p>
+<p>
+Since version 0.5, [;<em>effect</em>:…] is a shortcut to [-;<em>effect</em>:…].
+</p>
+<h4 id="sec-3.1.5">Specifying range </h4>
+<p>
+It is possible to specify a range of layers that a runtime effect tag affects. A range is a comma-separated list of "atomic" ranges that ends with a semicolon. Each range represents a set of non-negative integers. The atomic ranges can be one of:
+</p>
+<ul><li>
+<em>n</em> - a non-negative integer (e.g. 0, 4, 100).
+</li>
+<li>
+<em>n</em>- - every integer larger than or equal to n.
+</li>
+<li>
+<em>n</em>-<em>m</em> - every integer from n to m, inclusive.
+</li>
+<li>
+/<em>n</em> - every n-th integer, starting from 0.
+</li>
+<li>
+<em>m</em>/<em>n</em> - every n-th integer, starting from m.
+</li>
+<li>
+  r<em>n</em> - executed randomly 1 out of n times.
+</li>
+<li>
+  <em>m</em>r<em>n</em> - executed randomly m out of n times.
+</li>
+</ul><p>A range that consists of several atomic ranges represents their union. In addition, an empty range represents every non-negative integer, including 0. This is important, since by default (i.e. when the range is omitted altogether) the range is considered to be every <em>positive</em> integer, 0 not included.
+</p>
+<p>
+Examples of valid ranges:
+</p>
+<ul><li>
+";" - 0, 1, 2, 3, 4, 5, …
+</li>
+<li>
+"1,5-;" - 1, 5, 6, 7, 8, …
+</li>
+<li>
+"/3;" - 0, 3, 6, …
+</li>
+<li>
+"1/3;" - 1, 4, 7, …
+</li>
+<li>
+"1-5,2/4;" - 1, 2, 3, 4, 5, 6, 10, 14, …
+</li>
+</ul><h3 id="sec-3.2">Order of processing </h3>
+<p>
+The layers are processed top to bottom. At the first stage all multiply tags are processed. If a layer is encountered that has a multiply tag, it is duplicated the required amount of times. The original layer is deleted. If a layer has several multiply tags, only the first one is processed.
+</p>
+<p>
+Once all the multiply tags have been processed, we start from top to bottom again. Once a layer with an action tag is encountered, things start to get interesting. First off, only the first action tag actually does anything, all subsequent ones are ignored. The layer might also have several generator and effect tags attached to it. As of version 0.3, if there's a runtime effect tag present, but no action tag, "[noop]" action tag is assumed.
+</p>
+<p>
+AnimStack tries to determine the action that the action tag corresponds to. If it doesn't recognize the action, the layer is skipped altogether, and subsequent actions will also ignore it.
+</p>
+<p>
+Once the action is started, all initial effects are executed, in order. Every action consists of several steps, which are numbered starting from 0. The step's number affects the values returned by generators, and whether a runtime effect is executed based on its range.
+</p>
+<p>
+Each step of the action usually involves making a copy of the "source" layer and placing it into the "target" frame. An effect might affect either the source (most commonly) or the target. The difference between cumulative and non-cumulative actions comes into play here: if the action is cumulative, the effect is performed on the original source layer before it is copied and put into the target frame. If the action is non-cumulative, the effect is performed on the copy, after it has been added to the frame. At every step all the runtime effects are executed, in order. If there are variable parameters, they are substituted with the values generated by generators at the beginning of each step.
+</p>
+<p>
+There are two types of runtime effects, "+" and "-". They produce different results only with "roll" or "splice" actions. A "+" effect affects every layer in the roll at each step. A "-" effect affects only the current layer of the roll.
+</p>
+<h2 id="sec-4">Tag reference </h2>
+<p>
+All parameters are optional. You can omit any parameters from the end. As of AnimStack 0.5, you can also pass an empty string as a parameter. For example both "[copy:0]" (omitting the limit parameter) and "[copy::5]" (skipping the position parameter) are legal tags.
+</p>
+<h3 id="sec-4.1">Action tags </h3>
+<ul><li>
+<strong>bg</strong>:<em>limit</em> - walks up from the tagged layer, placing copies of it at the bottom of every untagged frame it encounters. If <em>limit</em> is supplied, at most <em>limit</em> frames are affected. This is useful for static backgrounds.
+</li>
+<li>
+<strong>fg</strong>:<em>limit</em> - walks down from the tagged layer, placing copies of it at the top of every untagged frame it encounters. If limit is supplied, at most limit frames are affected. This is the only tag that walks down. It is useful for static foregrounds, such as text.
+</li>
+<li>
+<strong>copy</strong>:<em>position</em>:<em>limit</em> - a more general version of <strong>bg</strong> tag, it allows to specify <em>position</em> within frame (see below). The <em>position</em> is -1 by default, which makes "[copy]" equivalent to "[bg]". If <em>limit</em> is supplied, at most <em>limit</em> frames are affected. It is useful when you want to insert a static element at specific position.
+</li>
+<li>
+<strong>roll</strong>:<em>position</em>:<em>limit</em>:<em>roll-offset</em> - works like <strong>copy</strong> if a single layer is tagged with it. However when it tags a layer group, the sublayers are cyclically picked starting from the bottom and inserted into untagged frames at a given position (-1 by default). If <em>limit</em> is supplied, at most <em>limit</em> frames are affected. If <em>limit</em> is 0 or less, it is considered to be infinite. If <em>roll-offset</em> is supplied, the starting layer is not the bottom layer, but the <em>roll-offset</em>'th starting from the bottom. This tag allows to insert one animation into another. Use <strong>repeat</strong> effect tag to repeat each layer from the roll several times.
+</li>
+<li>
+<strong>splice</strong>:<em>position</em>:<em>roll-offset</em> - a less general version of <strong>roll</strong>, it sets <strong>roll</strong>'s <em>limit</em> to the number of sublayers in a tagged layer group. This means every sublayer is inserted at most once. It is useful for inserting a non-looped animation.
+</li>
+<li>
+<strong>noop</strong>:<em>limit</em> or <strong>no</strong>:<em>limit</em> - this action works like <strong>bg</strong>, except it doesn't actually place the source layer anywhere. It is only useful for effects that affect the target layer, such as the "delay" effect. 
+</li>
+<li>
+  <strong>matte</strong>:<em>threshold</em>:<em>limit</em> - applies matte effect to preserve partial transparency in GIF files. Works similar to <strong>bg</strong>, except when the target frame has a pixel with transparency value less than <em>threshold</em> (1 by default), this pixel is removed from the copy of the source layer. See http://youtu.be/49FGgONSduM for example.
+</li>
+<li>
+  <strong>delete</strong>:<em>period</em>:<em>width</em>:<em>limit</em> - for every <em>period</em> frames, delete the first <em>width</em> frames. By default, <em>period</em> is 2 and <em>width</em> is <em>period</em>-1, so every second frame is deleted.
+</li>
+<li>
+  <strong>render</strong>:<em>limit</em>:<em>replace</em>:<em>only</em> - renders each frame into a single layer and puts that layer on top of the frame. If <em>replace</em> is greater than 0, delete every other layer in the frame. If <em>only</em> is provided, it is treated as a "position" argument. The layer at that position is rendered (usually just duplicated unless it's a layer group) and put at that position (if <em>replace</em> is on, the original layer is removed). This tag is useful for modifying the already existing frames instead of adding new layers into them like <strong>bg</strong> and friends do. <em>replace</em> argument is useful to get rid of the layers you don't need anymore. <em>only</em> allows to apply some effects to a single layer at specific position. Since AnimStack 0.5, if <em>replace</em> is less than 0, the rendered layer is inserted under whatever it was rendering (a single position or the whole frame). 
+</li>
+<li>
+  <strong>sampler</strong>:<em>position</em>:<em>count</em>:<em>limit</em>:<em>roll-offset</em>:<em>width</em>:<em>height</em> - this is arguably the most complex tag yet. Basically there's a source image, or a series of images. Then there is also a bunch of rectangular areas, which I call nodes. A temporary layer is created with a specified <em>width</em> and <em>height</em>. At step 0, sampler uses the first node to cut a rectangular area from the source image and scale it into the temporary layer. This layer is then added at <em>position</em> to a target frame. Then it moves towards the second node with rectangular area gradually changing in a linear fashion. There are <em>count</em> steps to reach the last node, however by setting <em>limit</em> it is possible to end the path before it finishes.
+<ul>
+  <li>The thing tagged with sampler should preferably be a layer group. The bottom of this layer group is treated as the source and everything above it as nodes. Nodes should be layers with boundaries contained within the boundaries of the source layer(s); their contents do not matter. Nodes are ordered from bottom to top.
+  <li><em>position</em> is -1 by default.</li>
+  <li>If <em>count</em> is 0 (which is default), it is set equal to the number of untagged frames after the sampler. If <em>count</em> is negative, it is set to the number of frames in a roll. The number of nodes cannot be greater than <em>count</em>.</li>
+  <li><em>limit</em> is by default equal to <em>count</em> and cannot be greater than <em>count</em>. Both <em>limit</em> and <em>count</em> can be set to 0 to be calculated automatically.</li>
+  <li><em>roll-offset</em> - if has a non-negative value, treat source as a roll with given offset. Basically you can pan around another animation.</li>
+  <li><em>width</em> and <em>height</em> are equal to image size by default. You might want to change image canvas size to avoid setting them manually.</li>
+  <li><strong>sb</strong> and <strong>delay</strong> effect tags behave differently when used with <strong>sampler</strong> action tag. See their documentation for details.</li>
+</ul>
+</li>
+<li>
+  <strong>dt</strong>:<em>direction</em> - this tag creates a duplicate tree. Depending on <em>direction</em>, it duplicates the target frame several times, placing copies below (0) or above (1) it. The default <em>direction</em> is 1. I'm going to assume this to be the case for now. Similarly to <strong>sampler</strong>, <strong>dt</strong> tag should be placed on a layer group. At the bottom of this layer group should be a layer or a layer group tagged with one of the "normal" action tags (that is, not another <strong>dt</strong> tag). This tag is processed as usual, except the target frame is duplicated according to the other contents of the duplicate tree.
+<ul>
+  <li>The duplicate is created for every layer inside <strong>dt</strong>, except for the bottommost one with the action tag.</li>
+  <li>A layer group creates a new branch within the tree.</li>
+  <li>By default, the previous duplicate is used as a basis for the copy. If <strong>dt</strong> is in non-cumulative mode ([.dt]) the root of the branch is used as a copy.</li>
+  <li>Every duplicate may have some effects attached to it (including both "before" and runtime effects). These are applied regardless of their range to this duplicate.</li>
+  <li>Every branch may also have some effects attached to it. Including the top-level branch, which is tagged with <strong>dt</strong>. The runtime effects are applied to every duplicate inside this branch. The "before" effects are applied only to those duplicates that copy the root of the branch and not the subsequent ones. Ranges are also ignored for these effects.
+  </li>
+  <li>The order of execution is: individual "before" effects, branch "before" effects, branch runtime effects, individual runtime effects. Inner branch effects are executed after outer branch effects.
+  </li>
+  <li>If this is confusing, watch the video tutorial for AnimStack 0.5 to see this feature in action.
+  </li>
+  <li>If <em>direction</em> is 0, the top layer is the one with the action tag, the duplicates are processed top to bottom and placed below the target frame.
+  </li>
+</ul>
+</li>
+</ul><h4 id="sec-4.1.1">Position </h4>
+<p>
+One of possible tag arguments is position within frame. It is an integer number which might be negative. It describes where exactly to put a new layer within each frame. If position is non-negative, it counts from the top, starting from 0 (0 means at the top of layer stack and so on). If position is negative, it counts from the bottom, with -1 being the bottom of the frame's layer stack. If position is out of range for the given layer stack, it just puts the source layer as far from the top/bottom as possible, i.e. at the bottom/top.
+</p>
+<h3 id="sec-4.2">Generator tags </h3>
+<ul><li>
+<strong>const</strong>:<em>value</em> - always returns <em>value</em> (0 by default)
+</li>
+<li>
+<strong>cycle</strong>:<em>value1</em>:<em>value2</em>:… - cyclically returns the supplied values (<em>value1</em> at step 0, <em>value2</em> at step 1 and so on). When no parameters, returns 0.
+</li>
+<li>
+<strong>rng</strong>:<em>n</em> - returns a non-negative random number less than <em>n</em>. n=10 by default.
+</li>
+<li>
+<strong>irng</strong>:<em>n</em> - returns a non-negative random integer less than <em>n</em>. n=10 by default.
+</li>
+<li>
+<strong>inc</strong>:<em>increment</em>:<em>initial</em> - returns the <em>initial</em> value at step 0, then at each step it increases by <em>increment</em>. By default, <em>increment</em> is 1 and <em>initial</em> is 0.
+</li>
+<li>
+<strong>osc</strong>:<em>amplitude</em>:<em>period</em>:<em>phase</em> - a simple harmonic oscillator with <em>amplitude</em>, <em>period</em> and <em>phase</em>. By default, <em>amplitude</em> is 10, <em>period</em> is 10 and <em>phase</em> is a random number from 0 to 1. The phase is normalized for period, i.e the phase 0.25 is 1/4th of the period and so on. This generator allows for "wavy" movements and stuff like that.
+</li>
+<li>
+  <strong>poly</strong>:<em>k1</em>:<em>k2</em>:…:<em>kn</em> - produces a polynomial of degree n. Specifically, at step x, the result is <em>k1</em>*x + <em>k2</em>*x^2 + … + <em>kn</em>*x^n. The default values for coefficients are 0, except for the last one. The n-th degree of the polynomial is enforced, so if <em>kn</em> is 0 or omitted, it is set to 1. Note that the polynomial produced by <strong>poly</strong> has no constant term. You can add a constant using arithmetic adjustment feature of generators.
+</li>
+</ul><h3 id="sec-4.3">Effect tags </h3>
+<ul><li>
+<strong>move</strong>:<em>x</em>:<em>y</em> - moves the source layer by (<em>x</em>, <em>y</em>). By default <em>x</em> and <em>y</em> are 0.
+</li>
+<li>
+  <strong>offset</strong>:<em>x</em>:<em>y</em>:<em>wrap</em> - offsets the source layer by (<em>x</em>, <em>y</em>). By default it "wraps around", i.e. when you offset to the right, the part of the layer that would be no longer visible appears from the left. If you want to disable wrapping, pass wrap=0. If <em>x</em> or <em>y</em> are skipped, the layer is offset randomly by that axis.
+</li>
+<li>
+<strong>resize</strong> - resizes the source layer to image size.
+</li>
+<li>
+<strong>scatter</strong>:<em>mode</em> - moves the source layer randomly so it doesn't go outside the borders of the image (if mode&lt;=0, this is default) or moves the source layer randomly so that part of it is still within image (if mode&gt;0). If you make a rectangular selection, this tag will try to move the layer so that it is inside of the selection. With non-rectangular selection this is not necessarily true, so don't bother.
+</li>
+<li>
+<strong>shrink</strong>:<em>right</em>:<em>bottom</em>:<em>left</em>:<em>top</em> - resizes the source layer by specified amount of pixels from right, bottom, left and top. Negative values will work, but they are not very useful. All parameters are 0 by default.
+</li>
+<li>
+<strong>scale</strong>:<em>hscale</em>:<em>vscale</em> - scales the source layer horizontally and vertically by specified coefficients. By default, <em>hscale</em> is 1 and <em>vscale</em> is equal to <em>hscale</em>.
+</li>
+<li>
+<strong>stretch</strong>:<em>dwidth</em>:<em>dheight</em> - stretches the layer horizontally by <em>dwidth</em> pixels and vertically by <em>dheight</em> pixels (or contracts if the values are negative). By default both parameters are 0.
+</li>
+<li>
+<strong>rotate</strong>:<em>angle</em>:<em>nocrop</em> - rotates the source layer by the specified <em>angle</em> (in degrees) around the center of the layer. By default it autocrops the layer before rotating it. Pass anything as <em>nocrop</em> to disable this. It is not recommended to use this effect with cumulative actions because of quality degradation (and if you disable autocrop beware of exponential layer growth).
+</li>
+<li>
+<strong>delay</strong>:<em>delay</em>:<em>delay2</em> - sets frame delay for target frame (useful for animated GIFs) to <em>delay</em>. Can be used in conjunction with <strong>noop</strong> action to mass-set delays for large number of frames.
+<ul>
+  <li>If used with <strong>sampler</strong> action tag, <em>delay2</em> is used for path corners. By default <em>delay2</em> is equal to <em>delay</em>.</li>
+</ul>
+</li>
+<li>
+<strong>erase</strong>:<em>n</em>:<em>direction</em> - works only on text layers with unformatted text (i.e. no individual formatting for different parts of text as introduced in GIMP 2.8; no bold or italic text either). Erases either the last (if direction&lt;=0, default) or the first (if direction&gt;0) <em>n</em> letters from the text. n=1 by default. Use with <strong>fg</strong> action to make text appear letter by letter.
+</li>
+<li>
+<strong>dup</strong>:<em>direction</em> - duplicates the target frame and places the duplicate either below (if direction&lt;=0, default) or above (if direction&gt;0) the target frame. The duplicate will not be affected by the current action, but will be by subsequent actions. <strong>dup</strong> has remarkably different effect depending on whether the action is cumulative or not: in cumulative actions the target frame is duplicated before the source layer is added to it; in non-cumulative actions it happens after.
+</li>
+<li>
+<strong>mask</strong> - adds layer mask based on the current selection to the source layer.
+</li>
+<li>
+<strong>opacity</strong>:<em>opacity</em> - sets opacity of the source layer to <em>opacity</em> (100 by default).
+</li>
+<li>
+  <strong>replace</strong>:<em>mode</em> - sets frame disposal mode of a target frame to "replace" if <em>mode</em>&gt;0 (default) or "combine" if <em>mode</em>&lt;0. If <em>mode</em> is 0, clear any frame disposal tags.
+</li>
+<li>
+  <strong>gb</strong>:<em>radius-x</em>:<em>radius-y</em> - applies gaussian blur to the source layer. By default <em>radius-x</em> is 0 and <em>radius-y</em> is equal to <em>radius-x</em>.
+</li>
+<li>
+  <strong>mb</strong>:<em>dx</em>:<em>dy</em> - applies motion blur to the source layer. By default <em>dx</em> and <em>dy</em> are 0.
+</li>
+<li>
+  <strong>zb</strong>:<em>radius</em>:<em>cx</em>:<em>cy</em> - applies zoom blur to the source layer. If <em>radius</em> (0 by default) is negative, zoom is inward. <em>cx</em> and <em>cy</em> are used to position the center of zoom relative to width and height of the image. By default <em>cx</em> and <em>cy</em> are 0.5, which corresponds to the center of the image.
+</li>
+<li>
+  <strong>rb</strong>:<em>angle</em>:<em>cx</em>:<em>cy</em> - applies radial blur to the source layer. <em>angle</em> is 0 by default. <em>cx</em> and <em>cy</em> work like in <strong>zb</strong>.
+</li>
+<li>
+  <strong>sb</strong>:<em>kd</em>:<em>kz</em> - does not do anything unless used with <strong>sampler</strong> action tag. Otherwise, it uses information provided by <strong>sampler</strong> tag to apply motion and zoom blurs to the source layer. The amount of blur is calculated based on movement in the path and is multiplied by coefficients <em>kd</em> for motion blur and <em>kz</em> for zoom blur. Corners of the path are never blurred. The default values are 10 for both <em>kd</em> and <em>kz</em>.
+</li>
+<li>
+  <strong>invert</strong> - inverts color of the source layer.
+</li>
+<li>
+  <strong>threshold</strong>:<em>lower</em>:<em>upper</em> - performs a threshold operation on the source layer, making each pixel completely black or completely white (transparency is not affected). Similar to Colors - Threshold tool of GIMP. However, if both parameters are omitted, the layer becomes completely black (again, sans transparency). <strong>thr</strong> is a shorthand for this tag.
+</li>
+<li>
+  <strong>desaturate</strong>:<em>mode</em> - desaturates the source layer. Similar to Colors - Desaturate. The mode is "Lightness" for negative values, "Average" for 0 (default), and "Luminosity" for positive values. <strong>des</strong> is a shorthand for this tag.
+</li>
+<li>
+  <strong>gradmap</strong>:<em>r</em>:<em>g</em>:<em>b</em> - similar to Colors - Map - Gradient Map. If RGB values are provided, the gradient is this color to white. If none of them are provided, the currently selected gradient is used. The effect is similar to desaturate, but with a tint of any color instead of black.
+</li>
+<li>
+  <strong>repeat</strong>:<em>n</em> - this effect tag affects only <strong>roll</strong>, <strong>splice</strong> and <strong>sampler</strong> action tags. Basically, when a layer in a roll is picked, this tag makes it being picked <em>n</em> times in a row (if <em>n</em> is a positive number). If <em>n</em> is 0, it will keep picking the same layer. If <em>n</em> is negative, it will start choosing previous layers. Everything is complicated by the fact that <em>n</em> can be changed by generator, or the <strong>repeat</strong> tag might not have its effect due to being out of specified range. The rule is that if this effect is executed with a positive <em>n</em>, then for the next <em>n</em>-1 steps the same layer is chosen regardless of the presence/absence of repeat tags and their parameters. Generally this shouldn't be an issue, but it's something to keep in mind when you're trying to arrange some complicated pattern to pick layers from a roll.
+</li>
+</ul>
