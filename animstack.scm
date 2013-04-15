@@ -1170,23 +1170,37 @@ where tag might be #f"
                      (gimp-layer-set-offsets layer ox oy)))))
            #t))))
 
+
+(define (animstack-get-disposal-mode str)
+  "mode can be (replace) or (combine) at the end of the string"
+  (let ((buffer (make-vector 2)))
+    (and (re-match "\\((combine|replace)\\)\\s*$" str buffer)
+         (let ((boundaries (vector-ref buffer 1)))
+           (substring str (car boundaries) (cdr boundaries))))))
+
 (define (add-frame-delay str delay)
   ;; we must find all substrings of the form (<number>ms) and remove them
-  (set! str (list->string
-        (let loop ((sl (string->list str)))
-          (cond ((null? sl) (list))
-                ((char=? (car sl) #\()
-                 (let* ((split (string-split (list->string (cdr sl)) #\)))
-                        (inside (car split))
-                        (len (string-length inside)))
-                   (if (and (> (length split) 1)
-                            (> len 2)
-                            (equal? (substring inside (- len 2) len) "ms")
-                            (string2number (substring inside 0 (- len 2)) integer?))
-                       (loop (cdr (memv #\) sl)))
-                       (cons (car sl) (loop (cdr sl))))))
-                (else (cons (car sl) (loop (cdr sl))))))))
-  (if delay (string-append str " (" (number->string delay) "ms)") str))
+  (let* ((disposal-mode (animstack-get-disposal-mode str))
+         (add-disposal (lambda (str)
+                         (if disposal-mode
+                             (add-combine-replace str disposal-mode)
+                             str))))
+    (set! str (list->string
+               (let loop ((sl (string->list str)))
+                 (cond ((null? sl) (list))
+                       ((char=? (car sl) #\()
+                        (let* ((split (string-split (list->string (cdr sl)) #\)))
+                               (inside (car split))
+                               (len (string-length inside)))
+                          (if (and (> (length split) 1)
+                                   (> len 2)
+                                   (equal? (substring inside (- len 2) len) "ms")
+                                   (string2number (substring inside 0 (- len 2)) integer?))
+                              (loop (cdr (memv #\) sl)))
+                              (cons (car sl) (loop (cdr sl))))))
+                       (else (cons (car sl) (loop (cdr sl))))))))
+    (add-disposal
+     (if delay (string-append str " (" (number->string delay) "ms)") str))))
 
 (define (animstack-delay img params)
   "Sets frame delay for target"
