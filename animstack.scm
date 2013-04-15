@@ -36,6 +36,9 @@
   ;; does fn return '(TRUE) ?
   (= (car (fn item)) TRUE))
 
+(define (int-round x)
+  (inexact->exact (round x)))
+
 (define *default-animstack-hash-size* 200)
 
 (define (animstack-hash size hashfn)
@@ -71,6 +74,7 @@
 
 (define (animstack-hashfn size)
   (let* ((seed (random size))
+         (sqsize (int-round (sqrt size)))
          (hashfn
           (lambda (obj)
             "It's terrible, but quick..."
@@ -79,8 +83,8 @@
              ((char? obj) (char->integer obj))
              ((string? obj)
               (let ((sl (string-length obj)))
-                (+ sl 
-                   (if (> sl 0) (hashfn (string-ref obj 0)) seed)
+                (+ sl
+                   (* sqsize (if (> sl 0) (hashfn (string-ref obj 0)) seed))
                    (if (> sl 1) (hashfn (string-ref obj 1)) seed)
                    )))
              ((symbol? obj)
@@ -427,9 +431,9 @@ where tag might be #f"
   (set! animstack-reset-count
         (lambda () (set! repeat-value 1) (set! repeat-count 0)))
   (set! animstack-init-count 
-        (lambda (n) (set! count (round n)) (set! repeat-count 0)))
+        (lambda (n) (set! count (int-round n)) (set! repeat-count 0)))
   (set! animstack-set-repeat-value
-        (lambda (n) (if (= repeat-count 0) (set! repeat-value (round n)))))
+        (lambda (n) (if (= repeat-count 0) (set! repeat-value (int-round n)))))
   (set! animstack-inc-count
         (lambda ()
           (cond ((> repeat-value 0)
@@ -1334,7 +1338,7 @@ where tag might be #f"
   (with-params
    ((n 1) (mode 0))
    (if (< n 0) (set! n 0))
-   (if (not (integer? n)) (set! n (round n)))
+   (if (not (integer? n)) (set! n (int-round n)))
    (cons (lambda (layer target)
            (if (is-true? gimp-item-is-text-layer layer)
                (let* ((text (car (gimp-text-layer-get-text layer)))
