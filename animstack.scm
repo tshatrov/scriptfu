@@ -3,7 +3,7 @@
 ;;; v. 0.6
 
 (define (display-to-string value)
-  "Debug only. Prints anything to string using display function"
+  "Prints anything to string using display function"
   (let ((port (open-output-string)))
     (display value port)
     ;; Fun fact: get-output-string is not mentioned once in tinyscheme docs...
@@ -177,6 +177,7 @@
         (gimp-item-set-name group (default-name-function layer-name))
         (gimp-image-insert-layer img group 0 -1)
         (gimp-image-reorder-item img layer group 0)
+        (animstack-copy-layer-labels layer group)
         group)
       layer))
 
@@ -928,7 +929,14 @@ where tag might be #f"
   (let* ((cumulative #t)
          (reverse #f)
          (terminate-label #f)
-         (bake (lambda (str) (list str cumulative reverse terminate-label))))
+         (bake 
+          (lambda (str) 
+            (let* ((split (string-split str #\>)))
+              (if (= (length split) 2)
+                  (begin
+                    (set! terminate-label (string->symbol (cadr split)))
+                    (set! str (car split)))))
+            (list str cumulative reverse terminate-label))))
     (let loop ((str str))
       (cond ((= (string-length str) 0) (bake str))
             ((char=? (string-ref str 0) #\.)
@@ -1857,6 +1865,7 @@ where tag might be #f"
 (define animstack-reset-labels #f)
 (define animstack-set-layer-labels #f)
 (define animstack-layer-has-label #f)
+(define animstack-copy-layer-labels #f)
 
 (let ((label-hash (make-animstack-hash '()))
       (label-tag-symbol 
@@ -1869,6 +1878,10 @@ where tag might be #f"
   (set! animstack-set-layer-labels
         (lambda (layer tags)
           (apply label-hash 'add layer (map label-tag-symbol tags))))
+  (set! animstack-copy-layer-labels
+        (lambda (oldlayer newlayer)
+          (let ((labels (cond ((label-hash 'assoc oldlayer) => cdr))))
+            (if labels (apply label-hash 'add newlayer labels)))))
   (set! animstack-layer-has-label
         (lambda (layer label)
           (let ((lst (cond ((label-hash 'assoc layer) => cdr) (else #f))))
