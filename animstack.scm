@@ -1528,14 +1528,24 @@ where tag might be #f"
          #t)))
 
 (define (animstack-mask img params)
-  "Adds mask from selection (or replaces existing one). Doesn't take any params"
-  (cons (lambda (layer target)
-          (cond ((is-true? gimp-item-is-group layer)) ;; Layer groups do not support masks
-                (else (if (>= (car (gimp-layer-get-mask layer)) 0)
-                          (gimp-layer-remove-mask layer MASK-DISCARD)) ;; option to MASK-APPLY?
-                      (let ((mask (car (gimp-layer-create-mask layer ADD-SELECTION-MASK))))
-                        (gimp-layer-add-mask layer mask)))))
-        #f))
+  "[mask:from] Adds mask from selection (or replaces existing one). If from is specified,
+   applies a mask based on alpha of target layer at position *from*."
+  (with-params
+   (from)
+   (let ((mask-from 
+          (lambda (layer target from)
+            (animstack-save-selection img)
+            (let ((source (get-layer-in-group target from)))
+              (gimp-image-select-item img CHANNEL-OP-REPLACE source)))))
+     (cons (lambda (layer target)
+             (cond ((is-true? gimp-item-is-group layer)) ;; Layer groups do not support masks
+                   (else (if (>= (car (gimp-layer-get-mask layer)) 0)
+                             (gimp-layer-remove-mask layer MASK-DISCARD)) ;; option to MASK-APPLY?
+                         (if from (mask-from layer target from))
+                         (let ((mask (car (gimp-layer-create-mask layer ADD-SELECTION-MASK))))
+                           (gimp-layer-add-mask layer mask))
+                         (if from (animstack-restore-selection img)))))
+           #f))))
 
 ;; TODO a shrink-like effect, but with a rectangular mask
 
