@@ -243,6 +243,10 @@ exception as of GIMP 2.8. Returns #f if not a number."
             (begin (set! res (new chunk)) (set! chunk (list)))
             (set! chunk (cons chr chunk)))))))
          
+(define (parse-tag-param-simple str)
+  (let ((valid-param (lambda (x) (or (number? x) (symbol? x)))))
+    (string2number str valid-param)))
+
 (define (parse-tag-param* str)
   (let ((valid-param (lambda (x) (or (number? x) (symbol? x)))))
     (if (= (string-length str) 0) 
@@ -265,7 +269,10 @@ where tag might be #f"
         ;;this might be legitimate tag
         (let* ((split2 (string-split tagstr #\:))
                (tagname (substring (car split2) 1 (string-length (car split2))))
-               (params (map parse-tag-param (cdr split2)))
+               (params (map (if (= (string-length tagname) 0) 
+                                parse-tag-param-simple ;;don't do ari stuff on label tags
+                                parse-tag-param)
+                            (cdr split2)))
                (pos (+ (string-length tagstr) 1)))
           (if (memv 'err params)
               (cons #f pos)
@@ -934,7 +941,7 @@ where tag might be #f"
             (let* ((split (string-split str #\>)))
               (if (= (length split) 2)
                   (begin
-                    (set! terminate-label (string->symbol (cadr split)))
+                    (set! terminate-label (parse-tag-param-simple (cadr split)))
                     (set! str (car split)))))
             (list str cumulative reverse terminate-label))))
     (let loop ((str str))
@@ -1858,9 +1865,7 @@ where tag might be #f"
     first-new-layer))
 
 (define (is-label-tag? tag)
-  (and (= (string-length (car tag)) 0)
-          (or (null? (cdr tag))
-              (symbol? (cadr tag)))))
+  (and (= (string-length (car tag)) 0)))
 
 (define animstack-reset-labels #f)
 (define animstack-set-layer-labels #f)
@@ -1870,7 +1875,7 @@ where tag might be #f"
 (let ((label-hash (make-animstack-hash '()))
       (label-tag-symbol 
        (lambda (tag) 
-         (if (null? (cdr tag)) 
+         (if (null? (cdr tag))
              (string->symbol "")
              (cadr tag)))))
   (set! animstack-reset-labels
