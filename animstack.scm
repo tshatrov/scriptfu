@@ -334,14 +334,15 @@ where tag might be #f"
   (let loop ((i start)
              (left limit))
     (let ((layer (get-layer i)))
-      (and (or (not left) (> left 0)) layer
-           (or (and ignore-first (= i start)) 
-               (not (test layer)) 
-               (begin 
-                 (action layer)
-                 (if left (set! left (- left 1)))
-                 #t))
-           (loop (next i) left)))))
+      (cond
+       ((or (not layer) (and left (<= left 0))) #f)
+       (else
+        (cond ((and ignore-first (= i start)))
+              ((not (test layer)))
+              (else
+               (action layer)
+               (if left (set! left (- left 1)))))
+        (loop (next i) left))))))
 
 (define (layer-getter layers)
   (let ((maxlen (vector-length layers)))
