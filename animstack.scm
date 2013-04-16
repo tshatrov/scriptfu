@@ -850,7 +850,7 @@ where tag might be #f"
 
 (define (process-dup-options dup-options img bindings target getter)
   (let* ((opts1 (car dup-options))
-         (cumulative (caar opts1))
+         (cumulative (car opts1))
          (dir (list-ref opts1 3))
          ;; range set to always true because it gets confusing otherwise
          (apply-effects (lambda (layer tgt effects)
