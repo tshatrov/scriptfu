@@ -1830,13 +1830,41 @@ where tag might be #f"
   (let* ((tag-name (car tag))
          (layer-name (strip-tags (car (gimp-item-get-name layer)) is-multiply-tag?))
          (num (string2number (substring tag-name 1 (string-length tag-name))))
-         (pos (car (gimp-image-get-item-position img layer))))
+         (pos (car (gimp-image-get-item-position img layer)))
+         (first-new-layer #f))
     (do ((i 0 (+ i 1)))
         ((>= i num))
       (let ((new (car (gimp-layer-copy layer FALSE))))
         (gimp-item-set-name new layer-name)
-        (gimp-image-insert-layer img new 0 pos))))
-  (gimp-image-remove-layer img layer))
+        (gimp-image-insert-layer img new 0 pos)
+        (if (= i 0) (set! first-new-layer new))))
+    (gimp-image-remove-layer img layer)
+    first-new-layer))
+
+(define (is-label-tag? tag)
+  (and (= (string-length (car tag)) 0)
+          (or (null? (cdr tag))
+              (symbol? (cadr tag)))))
+
+(define animstack-reset-labels #f)
+(define animstack-set-layer-labels #f)
+(define animstack-layer-has-label #f)
+
+(let ((label-hash (make-animstack-hash '()))
+      (label-tag-symbol 
+       (lambda (tag) 
+         (if (null? (cdr tag)) 
+             (string->symbol "")
+             (cadr tag)))))
+  (set! animstack-reset-labels
+        (lambda () (set! label-hash (make-animstack-hash '()))))
+  (set! animstack-set-layer-labels
+        (lambda (layer tags)
+          (apply label-hash 'add layer (map label-tag-symbol tags))))
+  (set! animstack-layer-has-label
+        (lambda (layer label)
+          (let ((lst (cond ((label-hash 'assoc layer) => cdr) (else #f))))
+            (and lst (memv label lst))))))
 
 (define (animstack-process-all-layers img)
   (srand (realtime))
@@ -1847,11 +1875,18 @@ where tag might be #f"
     (vector-for-each
      (lambda (layer) (gimp-item-set-visible layer TRUE))
      layers)
-    ;; preprocessing: find multiply tags and execute them
+    ;; preprocessing: find multiply tags and label tags and execute them
+    (animstack-reset-labels)
     (vector-for-each
      (lambda (layer)
-       (let ((tags (extract-animstack-tags layer is-multiply-tag?)))
-         (if (pair? tags) (process-multiply-tag img layer (car tags)))))
+       (let ((tags (extract-animstack-tags layer is-multiply-tag?))
+             (labeltags (extract-animstack-tags layer is-label-tag?)))
+         (if (pair? labeltags)
+             (gimp-item-set-name layer (strip-tags (car (gimp-item-get-name layer)) is-label-tag?)))
+         (if (pair? tags) 
+             (let ((newlayer (process-multiply-tag img layer (car tags))))
+               (set! layer newlayer)))
+         (if (and layer (pair? labeltags)) (animstack-set-layer-labels layer labeltags))))
      layers))
   ;; now the main part
   (gimp-context-push)
