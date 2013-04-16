@@ -1040,7 +1040,7 @@ where tag might be #f"
    ((amplitude 10) (period 10) (phase (random-float 1)))
    (if (= period 0) (error "Oscillator period cannot be 0"))
    (generator
-    (* amplitude 2 *pi* period (sin-normalized (+ (/ x period) phase 0.25)))
+    (* amplitude (/ (* 2 *pi*) period) (sin-normalized (+ (/ x period) phase 0.25)))
     )))
 
 (define (animstack-inc params)
