@@ -1,5 +1,5 @@
-<img src="http://i.imgur.com/ewZDa.gif"></img>
-<strong>October 19, 2012 - AnimStack 0.5 is released! See release notes in the comment section.</strong>
+<img src="http://i.imgur.com/Np9mX4H.gif"></img>
+<strong>April 17, 2013 - AnimStack 0.6 is released! See release notes in the comment section.</strong>
 <p>
 Watch video tutorials here: http://www.youtube.com/playlist?list=PLiASt6bCYQNCRlWbGrwyPnmJlwIzMziEq
 </p>
@@ -42,35 +42,47 @@ Unpack layer group - puts all layers in a layer group outside of it
 </ul>
 <h2 id="sec-3">The model </h2>
 <p>
-The main concept of AnimStack is a tag. There exist different types of tags: action tags, effect tags, generator tags and multiply tags. Each top-level layer or layer group might have one or several tags attached to it. To add a tag to a layer, put it in that layer's name. The order of the tags is significant, but their placement relative to the layer's original name isn't. All AnimStack tags are removed once they are processed, usually together with the layer they were on.
+The main concept of AnimStack is a tag. There exist different types of tags: action tags, effect tags, generator tags, multiply tags and label tags. Each top-level layer or layer group might have one or several tags attached to it. To add a tag to a layer, put it in that layer's name. The order of the tags is significant, but their placement relative to the layer's original name isn't. All AnimStack tags are removed once they are processed, usually together with the layer they were on.
 </p>
 <h3 id="sec-3.1">Tag syntax </h3>
 <p>
-Tags are enclosed in square brackets. Each tag generally starts with an identifier and is followed by optional parameters, separated by ":". The exact nature of identifier and parameters differs for different types of tags.
+Tags are enclosed in square brackets. Each tag generally starts with an identifier and is followed by optional parameters, separated by ":" ([<em>identifier</em>:<em>param1</em>:<em>param2</em>:…]). The exact nature of identifier and parameters differs for different types of tags.
 </p>
 <h4 id="sec-3.1.1">Multiply tags </h4>
 <p>
 Multiply tags are the simplest type of tag. The syntax is "[*<em>n</em>]" where <em>n</em> is a positive integer. For example "[*6]" is a valid multiply tag. Multiply tags accept no parameters.
 </p>
-<h4 id="sec-3.1.2">Action tags </h4>
+<h4 id="sec-3.1.2">Label tags</h4>
 <p>
-Action tag is the default type of tag, and the most important one. The syntax is "[<em>action</em>:<em>param1</em>:<em>param2</em>:…]". All parameters must be integers. For example "[roll:1:10]" is a valid action tag. Action tags also permit a "." character before the action name (e.g. "[.roll:1:10]"). This makes an action "non-cumulative". Actions are "cumulative" by default.
+(new in 0.6) Label tags are tags with empty identifier. They accept one parameter, which is the name of the label. By default a label has an empty string as a name. For example tag "[]" is a label with name "", whereas "[:abcd]" is a label with name "abcd". You should generally stick to alphanumeric characters when naming your labels.
 </p>
-<h4 id="sec-3.1.3">Generator tags </h4>
+<h4 id="sec-3.1.3">Action tags</h4>
+<p>
+Action tag is the default type of tag, and the most important one. The syntax is "[<em>action</em>:<em>param1</em>:<em>param2</em>:…]". All parameters must be integers. For example "[roll:1:10]" is a valid action tag. There are several modifiers that can be attached to action name.
+<ul>
+<li> A "." character before the action name (e.g. "[.roll:1:10]"). This makes an action "non-cumulative". Actions are "cumulative" by default.
+<li> (new in 0.6) A "~" character before the action name (e.g. "[~fg]"). This makes an action work in reverse direction.
+<li> (new in 0.6) An action tag can be assigned a terminating label, by adding "&gt;<em>label</em>" at the end of action name (e.g. "[bg&gt;end]").
+</ul>
+</p>
+<h4 id="sec-3.1.4">Generator tags </h4>
 <p>
 Generator tags allow to introduce variables to be used by effect tags. The syntax is "[<em>variable</em>=<em>generator</em>:<em>param1</em>:<em>param2</em>:…]". Each parameter must be a number. For example "[foo=cycle:0:10:20]" is a valid generator tag.
 </p>
 <p>
   Since version 0.5, it is possible to add arithmetic adjustments to any generator. The syntax is "[<em>variable</em>=<em>offset</em>+<em>multiplier</em>*<em>generator</em>:…]". Either of "<em>offset</em>+" and "<em>multiplier</em>*" can be omitted.
 </p>
-<h4 id="sec-3.1.4">Effect tags </h4>
+<h4 id="sec-3.1.5">Effect tags </h4>
 <p>
-Effect tags have the most complicated syntax. First off, the tag's identifier must start with one of three symbols: "!", "-", "+". If the tag starts with "!", it's considered an "initial" effect, otherwise it's a "runtime" effect. Syntax for an initial effect is as follows: "[!<em>effect</em>:<em>param1</em>:…]". Syntax for a runtime effect is as follows: "[&lt;-/+&gt;<em>range</em>;<em>effect</em>:<em>param1</em>:…]". Range can be omitted (and usually is). Parameters must be numbers; in case of runtime effects, variables introduced by generator tags on the same layer are also allowed. The following are examples of valid effect tags: "[!scale:0.5]", "[-scale:x]", "[+move:10:y]".
+Effect tags have the most complicated syntax. First off, the tag's identifier must start with one of three symbols: "!", "-", "+". If the tag starts with "!", it's considered an "initial" effect, otherwise it's a "runtime" effect. Syntax for an initial effect is as follows: "[!<em>effect</em>:<em>param1</em>:…]". Syntax for a runtime effect is as follows: "[&lt;-/+&gt;<em>range</em>;<em>effect</em>:<em>param1</em>:…]". Range can be omitted (and usually is). Parameters must be numbers; in case of runtime effects, variables introduced by generator tags on the same layer are also allowed, and (new in 0.6) you can also add arithmetic adjustments to them (see generator tags). 
+</p>
+<p>
+The following are examples of valid effect tags: "[!scale:0.5]", "[-scale:x]", "[+move:10:5+-2*y]" (use generator assigned to variable <em>y</em>, multiply it by -2 and add 5).
 </p>
 <p>
 Since version 0.5, [;<em>effect</em>:…] is a shortcut to [-;<em>effect</em>:…].
 </p>
-<h4 id="sec-3.1.5">Specifying range </h4>
+<h4 id="sec-3.1.6">Specifying range </h4>
 <p>
 It is possible to specify a range of layers that a runtime effect tag affects. A range is a comma-separated list of "atomic" ranges that ends with a semicolon. Each range represents a set of non-negative integers. The atomic ranges can be one of:
 </p>
@@ -117,10 +129,12 @@ Examples of valid ranges:
 </li>
 </ul><h3 id="sec-3.2">Order of processing </h3>
 <p>
-The layers are processed top to bottom. At the first stage all multiply tags are processed. If a layer is encountered that has a multiply tag, it is duplicated the required amount of times. The original layer is deleted. If a layer has several multiply tags, only the first one is processed.
+  The layers are processed top to bottom. At the first stage all multiply and label tags are processed. If a layer is encountered that has a multiply tag, it is duplicated the required amount of times. The original layer is deleted. If a layer has several multiply tags, only the first one is processed.</p>
+<p>
+(new in 0.6) A layer can have several label tags attached to it. They are processed and removed at this stage, but AnimStack remembers which layers had which labels until the end of the entire process. If a layer is later converted into a layer group, the label is transferred to the layer group, but aside from that, label assignments do not change. 
 </p>
 <p>
-Once all the multiply tags have been processed, we start from top to bottom again. Once a layer with an action tag is encountered, things start to get interesting. First off, only the first action tag actually does anything, all subsequent ones are ignored. The layer might also have several generator and effect tags attached to it. As of version 0.3, if there's a runtime effect tag present, but no action tag, "[noop]" action tag is assumed.
+Once all the multiply and label tags have been processed, we start from top to bottom again. Once a layer with an action tag is encountered, things start to get interesting. First off, only the first action tag actually does anything, all subsequent ones are ignored. The layer might also have several generator and effect tags attached to it. As of version 0.3, if there's a runtime effect tag present, but no action tag, "[noop]" action tag is assumed.
 </p>
 <p>
 AnimStack tries to determine the action that the action tag corresponds to. If it doesn't recognize the action, the layer is skipped altogether, and subsequent actions will also ignore it.
@@ -129,10 +143,13 @@ AnimStack tries to determine the action that the action tag corresponds to. If i
 Once the action is started, all initial effects are executed, in order. Every action consists of several steps, which are numbered starting from 0. The step's number affects the values returned by generators, and whether a runtime effect is executed based on its range.
 </p>
 <p>
-Each step of the action usually involves making a copy of the "source" layer and placing it into the "target" frame. An effect might affect either the source (most commonly) or the target. The difference between cumulative and non-cumulative actions comes into play here: if the action is cumulative, the effect is performed on the original source layer before it is copied and put into the target frame. If the action is non-cumulative, the effect is performed on the copy, after it has been added to the frame. At every step all the runtime effects are executed, in order. If there are variable parameters, they are substituted with the values generated by generators at the beginning of each step.
+Each step of the action usually involves making a copy of the "source" layer and placing it into the "target" frame. An effect might affect either the source (most commonly) or the target. The difference between cumulative and non-cumulative actions comes into play here: if the action is cumulative, the effect is performed on the original source layer before it is copied and put into the target frame. If the action is non-cumulative, the effect is performed on the copy, after it has been added to the frame. At every step all the runtime effects are executed, in order. If there are variable parameters, they are substituted with the values generated by generators at the beginning of each step. (new in 0.6) One generator named "i" is always present, it simply generates the number of the current step.
 </p>
 <p>
 There are two types of runtime effects, "+" and "-". They produce different results only with "roll" or "splice" actions. A "+" effect affects every layer in the roll at each step. A "-" effect affects only the current layer of the roll.
+</p>
+<p>
+(new in 0.6) If the action had a terminating label attached to it, the action will stop after it reaches the frame tagged with this label (the action will be performed on this frame, but not on any frame after that).
 </p>
 <h2 id="sec-4">Tag reference </h2>
 <p>
@@ -214,12 +231,17 @@ One of possible tag arguments is position within frame. It is an integer number 
 </li>
 <li>
 <strong>inc</strong>:<em>increment</em>:<em>initial</em> - returns the <em>initial</em> value at step 0, then at each step it increases by <em>increment</em>. By default, <em>increment</em> is 1 and <em>initial</em> is 0.
+<p>
+(new in 0.6) Note that for each layer there is always a generator named i defined like "[i=inc]", which, combined with arithmetic adjustments of parameters makes this generator kinda unnecessary. For example instead of using generator "[x=inc:3:4]" you can use "4+3*i" as a parameter in your effects.
+</p>
 </li>
 <li>
 <strong>osc</strong>:<em>amplitude</em>:<em>period</em>:<em>phase</em> - a simple harmonic oscillator with <em>amplitude</em>, <em>period</em> and <em>phase</em>. By default, <em>amplitude</em> is 10, <em>period</em> is 10 and <em>phase</em> is a random number from 0 to 1. The phase is normalized for period, i.e the phase 0.25 is 1/4th of the period and so on. This generator allows for "wavy" movements and stuff like that.
 </li>
 <li>
   <strong>poly</strong>:<em>k1</em>:<em>k2</em>:…:<em>kn</em> - produces a polynomial of degree n. Specifically, at step x, the result is <em>k1</em>*x + <em>k2</em>*x^2 + … + <em>kn</em>*x^n. The default values for coefficients are 0, except for the last one. The n-th degree of the polynomial is enforced, so if <em>kn</em> is 0 or omitted, it is set to 1. Note that the polynomial produced by <strong>poly</strong> has no constant term. You can add a constant using arithmetic adjustment feature of generators.
+</li>
+<li><strong>dosc</strong>:<em>amplitude</em>:<em>period</em>:<em>phase</em> and <strong>dpoly</strong>:<em>k1</em>:<em>k2</em>:…:<em>kn</em> are derivatives of the above generators. You can use those with <strong>drotate</strong> effect to correctly rotate your object wrt its trajectory.
 </li>
 </ul><h3 id="sec-4.3">Effect tags </h3>
 <ul><li>
@@ -259,7 +281,7 @@ One of possible tag arguments is position within frame. It is an integer number 
 <strong>dup</strong>:<em>direction</em> - duplicates the target frame and places the duplicate either below (if direction&lt;=0, default) or above (if direction&gt;0) the target frame. The duplicate will not be affected by the current action, but will be by subsequent actions. <strong>dup</strong> has remarkably different effect depending on whether the action is cumulative or not: in cumulative actions the target frame is duplicated before the source layer is added to it; in non-cumulative actions it happens after.
 </li>
 <li>
-<strong>mask</strong> - adds layer mask based on the current selection to the source layer.
+<strong>mask</strong>:<em>from</em> - by default adds layer mask based on the current selection to the source layer. If <em>from</em> is specified, it describes a position inside the target frame. Alpha channel of a layer at that position is used to mask the source layer.
 </li>
 <li>
 <strong>opacity</strong>:<em>opacity</em> - sets opacity of the source layer to <em>opacity</em> (100 by default).
@@ -297,4 +319,14 @@ One of possible tag arguments is position within frame. It is an integer number 
 <li>
   <strong>repeat</strong>:<em>n</em> - this effect tag affects only <strong>roll</strong>, <strong>splice</strong> and <strong>sampler</strong> action tags. Basically, when a layer in a roll is picked, this tag makes it being picked <em>n</em> times in a row (if <em>n</em> is a positive number). If <em>n</em> is 0, it will keep picking the same layer. If <em>n</em> is negative, it will start choosing previous layers. Everything is complicated by the fact that <em>n</em> can be changed by generator, or the <strong>repeat</strong> tag might not have its effect due to being out of specified range. The rule is that if this effect is executed with a positive <em>n</em>, then for the next <em>n</em>-1 steps the same layer is chosen regardless of the presence/absence of repeat tags and their parameters. Generally this shouldn't be an issue, but it's something to keep in mind when you're trying to arrange some complicated pattern to pick layers from a roll.
 </li>
+<li>
+  <strong>crop</strong>:<em>margin</em> - autocrop the layer, leaving a margin of <em>margin</em> pixels around it (which is 0 by default).
+</li>
+<li>
+  <strong>drotate</strong>:<em>x</em>:<em>y</em>:<em>ix</em>:<em>iy</em>:<em>nocrop</em> - like <strong>rotate</strong>, but the angle is calculated as arctan(<em>iy</em>/<em>ix</em>)-arctan(<em>y</em>/<em>x</em>). It's the angle by which the vector (<em>ix</em>, <em>iy</em>) must be rotated to point in the same direction as (<em>x</em>, <em>y</em>). By default <em>ix</em> is 0 and <em>iy</em> is -1, which corresponds to object pointing upwards. If <em>x</em> and <em>y</em> are derivatives of the object's position, then "[drotate:x:y]" will rotate the object towards the direction of its movement.
+</li>  
+<li>
+  <strong>seed</strong>:<em>n</em> - sets random number generator seed to <em>n</em>. This can be used to ensure random effects like <strong>scatter</strong> and <strong>offset</strong> behave identically for two different layers. The results of generators <strong>rng</strong> and <strong>irng</strong> are also affected.
+</li>
+
 </ul>
