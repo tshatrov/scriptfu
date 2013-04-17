@@ -1547,7 +1547,7 @@ where tag might be #f"
    (let ((mask-from 
           (lambda (layer target from)
             (animstack-save-selection img)
-            (let ((source (get-layer-in-group target from)))
+            (let ((source (get-layer-in-group target (int-round from))))
               (gimp-image-select-item img CHANNEL-OP-REPLACE source)))))
      (cons (lambda (layer target)
              (cond ((is-true? gimp-item-is-group layer)) ;; Layer groups do not support masks
