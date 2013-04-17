@@ -1961,8 +1961,8 @@ where tag might be #f"
  "Process AnimStack tags"
  "Process all AnimStack tags"
  "Timofei Shatrov"
- "Copyright 2012"
- "September 18, 2012"
+ "Copyright 2012-2013"
+ "April 17, 2013"
  "RGB RGBA GRAY GRAYA" ;; no layer groups in indexed :(
  SF-IMAGE     "Image to use"       0
  )
