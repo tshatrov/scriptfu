@@ -570,7 +570,7 @@ where tag might be #f"
          (fn (animstack-common -1 -1 action)))
     (fn img layer opts limit)))
 
-(define (render-layer-group img group only)
+(define (render-layer-group img group interval)
   "Like flatten-layer-group, but returns a new layer instead of merging"
   (let ((name (default-copy-name group "R "))
         (layers (cadr (gimp-image-get-layers img)))
@@ -579,10 +579,10 @@ where tag might be #f"
     (vector-for-each
      (lambda (lr) (gimp-item-set-visible lr (if (= lr group) TRUE FALSE)))
      layers)
-    (if (and only (not (= group only)))
-        (vector-for-each
-         (lambda (lr)
-           (if (not (= lr only))
+    (if interval
+        (vector-for-each-i
+         (lambda (lr i)
+           (if (not (<= (car interval) i (cdr interval)))
                (begin
                  (set! changed (cons (cons lr (car (gimp-item-get-visible lr))) changed))
                  (gimp-item-set-visible lr FALSE))))
@@ -595,37 +595,49 @@ where tag might be #f"
      layers)
     result))
 
+(define (animstack-get-interval group only interval)
+  (if (is-true? gimp-item-is-group group)
+      (let* ((nlayers (car (gimp-item-get-children group)))
+             (onlypos (if (< only 0)
+                          (max 0 (+ nlayers only))
+                          (min (- nlayers 1) only))))
+        (if (< interval 0)
+            (cons (max 0 (+ onlypos interval)) onlypos)
+            (cons onlypos (min (- nlayers 1) (+ onlypos interval)))))
+      #f))
 
-(define (render-action replace under only img source pos opts)
+(define (render-action replace under only interval img source pos opts)
   (lambda (target)
     (let* ((bindings (get-bindings (cadr opts)))
            (apply-effects (apply-effects-simple img (list-ref opts 3)
                                                 bindings #f))
-           (only-layer (and only (get-layer-in-group target only)))
-           (realpos (if only-layer (car (gimp-image-get-item-position img only-layer)) 0))
-           (new (render-layer-group img target only-layer)))
+           (interval (if only (animstack-get-interval target only interval)))
+           (realpos (if interval (car interval) 0))
+           (shift (if under 0 1))
+           (new (render-layer-group img target interval)))
       (if under
-          (if only-layer
-              (set! realpos (+ realpos 1))
+          (if interval
+              (set! realpos (+ (cdr interval) 1))
               (set! realpos -1)))
       (set! target (put-layer-in-group img new target realpos gimp-image-insert-layer))
       (process-dup-options* opts img bindings target (dup-getter img new))
       (if replace
-          (if only-layer
-              (gimp-image-remove-layer img only-layer)
-              (vector-for-each-i
-               (lambda (layer i) (if (not (= i 0)) (gimp-image-remove-layer img layer)))
-               (cadr (gimp-item-get-children target)))))
+          (let ((test (if interval 
+                          (lambda (i) (<= (+ (car interval) shift) i (+ (cdr interval) shift)))
+                          (lambda (i) (not (= i 0))))))
+            (vector-for-each-i
+             (lambda (layer i) (if (test i) (gimp-image-remove-layer img layer)))
+             (cadr (gimp-item-get-children target)))))
       (apply-effects new target) ;; render is always non-cumulative
       )))
 
-;; [render:limit:replace:only]
+;; [render:limit:replace:only:interval]
 (define (animstack-render img layer opts . params)
   (with-params
-   (limit replace only)
+   (limit replace only (interval 0))
    (let* ((rep (and replace (> replace 0)))
           (under (and replace (< replace 0)))
-          (action (lambda args (apply render-action rep under only args)))
+          (action (lambda args (apply render-action rep under only interval args)))
           (fn (animstack-common -1 0 action)))
      (fn img layer opts limit))))
 
