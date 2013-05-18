@@ -451,41 +451,6 @@
            (gimp-selection-none img)))))
 
 
-(define (bgmask-calculate-covering-path img radius)
-  (let* ((width (car (gimp-image-width img)))
-         (height (car (gimp-image-height img)))
-         (path '()))
-    (let loop ((x 0) (y 0) (dir -1))
-      (cond ((> x width) (map exact->inexact path))
-            (else (set! path (append path (list x y)))
-                  (cond ((= dir -1) (loop x height 0))
-                        ((= dir 1) (loop x 0 0))
-                        ((= dir 0) (loop (+ x radius) y (if (= y 0) -1 1)))))))))
-
-(define (bgmask-clone-color-erase img source target)
-  (gimp-context-push)
-  (let* ((radius 100)
-         (path (bgmask-calculate-covering-path img radius))
-         (brush (car (gimp-brush-new "BgMask temp brush")))
-         )
-    (gimp-message* path)
-    (gimp-brush-set-shape brush 0)
-    (gimp-brush-set-hardness brush 1)
-    (gimp-brush-set-radius brush radius)
-    (gimp-context-set-brush brush)
-    (gimp-context-set-sample-merged FALSE)
-    (gimp-context-set-paint-mode COLOR-ERASE-MODE)
-    ;;(gimp-context-set-paint-mode 0)
-    (gimp-context-set-opacity 100)
-    (gimp-context-set-brush-aspect-ratio 0)
-    (gimp-context-set-brush-angle 0)
-    (gimp-context-set-brush-size radius)
-    (gimp-clone target source 0 0 0 (length path) (list->vector path))
-    (gimp-brush-delete brush))
-  (gimp-context-pop))
-
-
-
 (define (script-fu-bgmask-adjust-masks img transfer-alpha denoise blur grow smoothen apply-masks)
   (gimp-image-undo-group-start img)
   (if (= transfer-alpha TRUE) (bgmask-transfer-alpha img))
@@ -519,4 +484,73 @@
  SF-TOGGLE     "6. Apply masks" 0
  )
 
-(script-fu-menu-register  "script-fu-bgmask-adjust-masks" "<Image>/Script-Fu/BgMask")
+(script-fu-menu-register "script-fu-bgmask-adjust-masks" "<Image>/Script-Fu/BgMask")
+
+
+(define (bgmask-calculate-covering-path img radius)
+  (let* ((width (car (gimp-image-width img)))
+         (height (car (gimp-image-height img)))
+         (path '()))
+    (let loop ((x 0) (y 0) (dir -1))
+      (cond ((> x width) (map exact->inexact path))
+            (else (set! path (append path (list x y)))
+                  (cond ((= dir -1) (loop x height 0))
+                        ((= dir 1) (loop x 0 0))
+                        ((= dir 0) (loop (+ x radius) y (if (= y 0) -1 1)))))))))
+
+(define (bgmask-clone-color-erase img source target)
+  (gimp-context-push)
+  (let* ((radius 100)
+         (path (bgmask-calculate-covering-path img radius))
+         (brush (car (gimp-brush-new "BgMask temp brush")))
+         )
+    (gimp-brush-set-shape brush 0)
+    (gimp-brush-set-hardness brush 1)
+    (gimp-brush-set-radius brush radius)
+    (gimp-context-set-brush brush)
+    (gimp-context-set-sample-merged FALSE)
+    (gimp-context-set-paint-mode COLOR-ERASE-MODE)
+    ;;(gimp-context-set-paint-mode 0)
+    (gimp-context-set-opacity 100)
+    (gimp-context-set-brush-aspect-ratio 0)
+    (gimp-context-set-brush-angle 0)
+    (gimp-context-set-brush-size radius)
+    (gimp-clone target source 0 0 0 (length path) (list->vector path))
+    (gimp-brush-delete brush))
+  (gimp-context-pop))
+
+(define (script-fu-bgmask-blend-edges img amount)
+  (gimp-image-undo-group-start img)
+  (let* ((layers (bgmask-get-layers img))
+         (bg (car layers))
+         (rest (cdr layers))
+         (nl (length rest)) (i 0))
+    (for-each
+     (lambda (layer)
+       (gimp-progress-update (/ i nl)) (set! i (+ i 1))
+       (let ((mask (car (gimp-layer-get-mask layer))))
+         (if (not (= mask -1)) (gimp-layer-remove-mask layer MASK-APPLY)))
+       (gimp-image-select-item img CHANNEL-OP-REPLACE layer)
+       (gimp-selection-invert img)
+       (if (bgmask-is-true? gimp-selection-bounds img)
+           (begin
+             (gimp-selection-grow img amount)
+             (bgmask-clone-color-erase img bg layer))))
+     layers))
+  (gimp-selection-none img)
+  (gimp-image-undo-group-end img)
+  (gimp-displays-flush))
+  
+(script-fu-register
+ "script-fu-bgmask-blend-edges"
+ "Blend edges..."
+ "Blend edges using Color to Alpha algorithm using background as a reference"
+ "Timofei Shatrov"
+ "Copyright 2013"
+ "May 18, 2013"
+ "RGB RGBA GRAY GRAYA"
+ SF-IMAGE     "Image to use"       0
+ SF-ADJUSTMENT "Radius" '(1 0 255 1 5 0 SF-SPINNER)
+ )
+
+(script-fu-menu-register "script-fu-bgmask-blend-edges" "<Image>/Script-Fu/BgMask")
