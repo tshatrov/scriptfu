@@ -1,6 +1,6 @@
 ;;; GIMP Animation Tools
 ;;; by Timofei Shatrov
-;;; v. 0.6
+;;; v. 0.61
 
 (define (display-to-string value)
   "Prints anything to string using display function"
@@ -1962,7 +1962,7 @@ where tag might be #f"
  "Process all AnimStack tags"
  "Timofei Shatrov"
  "Copyright 2012-2013"
- "April 17, 2013"
+ "May 19, 2013"
  "RGB RGBA GRAY GRAYA" ;; no layer groups in indexed :(
  SF-IMAGE     "Image to use"       0
  )
