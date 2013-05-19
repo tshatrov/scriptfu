@@ -611,7 +611,7 @@ where tag might be #f"
     (let* ((bindings (get-bindings (cadr opts)))
            (apply-effects (apply-effects-simple img (list-ref opts 3)
                                                 bindings #f))
-           (interval (if only (animstack-get-interval target only interval)))
+           (interval (if only (animstack-get-interval target only interval) #f))
            (realpos (if interval (car interval) 0))
            (shift (if under 0 1))
            (new (render-layer-group img target interval)))
