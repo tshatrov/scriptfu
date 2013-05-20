@@ -410,25 +410,27 @@
              (gimp-context-set-foreground '(0 0 0))
              (if (bgmask-is-true? gimp-selection-bounds img)
                  (gimp-edit-fill temp1 0))
-             (gimp-context-pop)
              (gimp-selection-none img)
-             (let ((temp2 (car (gimp-layer-copy temp1 FALSE))))
-               (gimp-image-insert-layer img temp2 0 0)
-               ;;(plug-in-gauss 1 img temp2 1 1 1)
-               (plug-in-blur 1 img temp2)
-               (gimp-layer-set-mode temp2 DIFFERENCE-MODE)
-               (gimp-item-set-visible temp1 TRUE)
-               (let ((temp3 (car (gimp-image-merge-down img temp2 1)))
-                     (threshold (- 224 (* 12 amount))))
-                 (gimp-threshold temp3 threshold 255)
-                 (bgmask-mask-common img temp3)
-                 (if (bgmask-is-true? gimp-selection-bounds img)
-                     (begin 
-                       (gimp-invert mask)
-                       (gimp-threshold mask 128 255)))
-                 (gimp-image-remove-layer img temp3)
-                 )))
-           (gimp-selection-none img)))))
+             (let ((cmatrix '(1 1 1 1 1
+                              1 1 1 1 1
+                              1 1 0 1 1
+                              1 1 1 1 1
+                              1 1 1 1 1))
+                   (channels '(1 1 1 1 0)))
+               (plug-in-convmatrix 1 img temp1 25 (list->vector cmatrix)
+                                   0 24 0 5 (list->vector channels) 0)
+               (gimp-context-set-sample-threshold-int (* 12 amount))
+
+               (gimp-image-select-color img CHANNEL-OP-REPLACE temp1 '(0 0 0))
+               (gimp-context-set-foreground '(0 0 0))
+               (gimp-edit-fill mask 0)
+
+               (gimp-image-select-color img CHANNEL-OP-REPLACE temp1 '(255 255 255))
+               (gimp-context-set-foreground '(255 255 255))
+               (gimp-edit-fill mask 0)
+               (gimp-image-remove-layer img temp1))
+             (gimp-context-pop)
+             (gimp-selection-none img))))))
 
 (define (bgmask-adjust-mask-smoothen img drw amount)
   (let ((mask (car (gimp-layer-get-mask drw)))
