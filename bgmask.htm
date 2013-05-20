@@ -1,8 +1,12 @@
-<strong>January 13, 2013: BgMask 0.21 is released!</strong> Video tutorial: http://www.youtube.com/watch?v=h7uJUiyJ1yw
+<strong>May 21, 2013: BgMask 0.3 is released!</strong>
+
+Video tutorial (for version 0.2): http://www.youtube.com/watch?v=h7uJUiyJ1yw
 
 This script adds several tools under Script-Fu - BgMask: "Extract background...", "Mask against background...", "Average linked layers...", and in BgMask 0.2 there are also "Extract background manually" and "Mask adjustments...". It can be used to mask moving objects/characters from animations with still background.
 
-Also check out my other script <a href="http://registry.gimp.org/node/26501">AnimStack</a> which is much more useful.
+BgMask 0.3 introduces a new tool, "Blend Edges" which allows your masked objects to blend seamlessly into different backgrounds. Also, it improves the denoising algorithm of Mask Adjustments and adds a "Smoothen via paths" option.
+
+Also check out my other script <a href="http://registry.gimp.org/node/26501">AnimStack</a> which is supposed to be used with this one.
 
 <h3>Extract background...</h3>
 
@@ -45,7 +49,18 @@ So, you did "Mask against background" and the results aren't very good, no matte
 <li>Denoise - choose a value from 0 to 10. Removes "noisy" pixels using a special algorithm. 0 does nothing, 1 removes black pixels completely surrounded by white pixels and vice versa. 10 is strongest. This may help to get rid of holes and stray pixels.
 <li>Blur - simply uses gaussian blur on each mask. Effectively allows to "blend in" the edges.
 <li>Grow/shrink - the amount can be positive (to grow) or negative (to shrink). Grow can be used to fill the holes. Shrink can be used to tighten the edges (but if there are any holes, they will get way more noticeable!).
+<li>Smoothen via paths - convert mask to path and then back to mask again, making it more smooth. You shouldn't use this unless the shape of the mask is what you really care about. 
 <li>Apply masks - simply applies every top-level mask. This is reversible with "Transfer alpha channel to masks".
 </ul>
 
 GIMP remembers the last values you chose, and it might be annoying with this tool. Note that "Reset" button will restore the safe default values.
+
+<h3>Blend edges</h3>
+
+Masks produced by "Mask against background" tend to have bits of background sticking around them. You might get rid of them with shrink mask adjustment, but Blend edges, introduced in BgMask 0.3 is a better idea. It uses algorithm similar to Color to Alpha tool in GIMP to make the edges of the mask blend seamlessly.
+
+In order to use this tool, you must have the background as the bottommost layer, just like with "Mask against background". If you did "Extract background manually" and filled the holes with some clashing color (as was recommended), select this color and do Heal Selection with Resynthesizer or fix them up with clone tool. For "Blend edges" the background should be as close to original background as possible.
+
+The only parameter of this tool is <i>radius</i>. It tells how thick the affected area will be. Anything farther than <i>radius</i> from the edge of the mask will not be affected.
+
+This cutting edge technology should be the last step of preparing your mask. After you do this operation, you won't be able to do mask adjustments again, as it will apply all the masks and overwrite transparent areas. If you're not satisfied with the result, use undo.
