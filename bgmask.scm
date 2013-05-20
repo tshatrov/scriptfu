@@ -1,5 +1,5 @@
 ;;; Extract background/foreground from animation
-;;; v. 0.21
+;;; v. 0.3
 
 (define (bgmask-diff-layers img layer1 layer2 threshold buffer)
   (let* ((layer1-copy (car (gimp-layer-copy layer1 FALSE)))
@@ -475,7 +475,7 @@
  "Grow/shrink/blur all masks in the image and/or mass apply them"
  "Timofei Shatrov"
  "2012-2013"
- "December 25, 2012"
+ "May 21, 2013"
  "RGB RGBA GRAY GRAYA"
  SF-IMAGE      "Image to use"       0
  SF-TOGGLE     "1. Transfer alpha channel to masks" 0
@@ -549,7 +549,7 @@
  "Blend edges using Color to Alpha algorithm using background as a reference"
  "Timofei Shatrov"
  "Copyright 2013"
- "May 18, 2013"
+ "May 19, 2013"
  "RGB RGBA GRAY GRAYA"
  SF-IMAGE     "Image to use"       0
  SF-ADJUSTMENT "Radius" '(1 0 255 1 5 0 SF-SPINNER)
