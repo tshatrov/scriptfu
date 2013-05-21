@@ -16,7 +16,7 @@ This tool is used to extract background from video frames. The background must b
 
 The video frames must be loaded as GIMP layers. They should be the same size. There should be nothing else in the image. The script creates a new image, using the following algorithm: for each pixel, the layers are compared to each other. The color that is closest to the greatest number of layers is chosen (within the threshold). Of course I don't actually do this pixel by pixel, it's done using complex math involving layer modes. It's actually quite slow if you have a lot of layers. This really should've been a plugin, but programming in C is no fun, so there we go.
 
-The new image created by the script will contain <i>all original layers</i> and a new background layer <i>at the bottom</i>. Don't miss it! There will probably be some artifacts if something stays in one place for too long. They are usually easy to spot.
+The new image created by the script will contain <em>all original layers</em> and a new background layer <em>at the bottom</em>. Don't miss it! There will probably be some artifacts if something stays in one place for too long. They are usually easy to spot.
 
 <h3>Mask against background...</h3>
 
@@ -61,6 +61,6 @@ Masks produced by "Mask against background" tend to have bits of background stic
 
 In order to use this tool, you must have the background as the bottommost layer, just like with "Mask against background". If you did "Extract background manually" and filled the holes with some clashing color (as was recommended), select this color and do Heal Selection with Resynthesizer or fix them up with clone tool. For "Blend edges" the background should be as close to original background as possible.
 
-The only parameter of this tool is <i>radius</i>. It tells how thick the affected area will be. Anything farther than <i>radius</i> from the edge of the mask will not be affected.
+The only parameter of this tool is <em>radius</em>. It tells how thick the affected area will be. Anything farther than <em>radius</em> from the edge of the mask will not be affected.
 
 This cutting edge technology should be the last step of preparing your mask. After you do this operation, you won't be able to do mask adjustments again, as it will apply all the masks and overwrite transparent areas. If you're not satisfied with the result, use undo.
