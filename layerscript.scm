@@ -44,6 +44,9 @@ exception as of GIMP 2.8. Returns #f if not a number."
             (begin (set! res (new chunk)) (set! chunk (list)))
             (set! chunk (cons chr chunk)))))))
 
+(define (string-join slist delimiter)
+  (or (foldr (lambda (s1 s2) (if s1 (string-append s1 delimiter s2) s2)) #f slist) ""))
+
 (define (list-get lst n)
   "like list-ref but returns #f if out of range"
   (let ((len (length lst)))
@@ -101,6 +104,9 @@ exception as of GIMP 2.8. Returns #f if not a number."
     (and (member string plist)
          (car (gimp-item-get-parasite item string)))))
 
+(define (set-parasite item name value)
+  (gimp-item-attach-parasite item (list name 3 value)))
+
 (define (get-layer-by-tattoo img tat)
   (and tat
        (string2number tat)
@@ -109,7 +115,7 @@ exception as of GIMP 2.8. Returns #f if not a number."
 
 (define (layerscript-layer-name srctat tag-index layer-index)
   (string-append *layerscript-layer-name-prefix*
-                 " #" srctat
+                 " #" (number->string srctat)
                  "." (number->string tag-index)
                  "." (number->string layer-index)))
   
@@ -119,14 +125,14 @@ exception as of GIMP 2.8. Returns #f if not a number."
         (pos (+ (car (gimp-image-get-item-position img pos-layer)) 1)))
     (if (< parent 0) (set! parent 0))
     (gimp-image-insert-layer img layer parent pos)
+    (if tat (gimp-item-set-tattoo layer (string2number tat)))
     layer))
 
-(define (get-linked-layer img source-layer tag-index layer-index)
+(define (get-linked-layer img source-layer pos-layer tag-index layer-index)
   (let* ((lname (layerscript-layer-name (car (gimp-item-get-tattoo source-layer))
                                         tag-index layer-index))
          (pname (string-append *parasite-prefix* "-" (number->string tag-index)))
-         (par (get-parasite source-layer pname))
-         (pos-layer source-layer))
+         (par (get-parasite source-layer pname)))
     (if par
         (let* ((tattoo-list (string-split (caddr par) #\ ))
                (cur-tat (list-get tattoo-list layer-index))
@@ -136,19 +142,17 @@ exception as of GIMP 2.8. Returns #f if not a number."
           (or cur-layer
               (begin
                 (if prev-layer (set! pos-layer prev-layer))
-                ;; make new layer
-                ;; update parasite
-                ;; return layer
-                ))
-          )
-        ;; make new layer
-        ;; update parasite
-        ;; return layer
-
-    )))
-
-
-
+                (let* ((layer (make-layerscript-layer img pos-layer lname cur-tat))
+                       (new-tat (number->string (car (gimp-item-get-tattoo layer)))))
+                  (if cur-tat
+                      (set-car! (list-tail tattoo-list layer-index) new-tat)
+                      (set! tattoo-list (append tattoo-list (list new-tat))))
+                  (set-parasite source-layer pname (string-join tattoo-list " "))
+                  layer))))
+        (let* ((layer (make-layerscript-layer img pos-layer lname #f))
+               (new-tat (number->string (car (gimp-item-get-tattoo layer)))))
+          (set-parasite source-layer pname new-tat)
+          layer))))
 
 
 ))
