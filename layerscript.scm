@@ -177,12 +177,21 @@ recurses down a layer group even if it passes the test"
         ((or (null? pl) (>= i n)) pv)
       (vector-set! pv i (car pl)))))
 
+(define (int-parser s . args)
+  (let ((n (string2number s)))
+    (if (and n (or (null? args) ((car args) n)))
+        (inexact->exact n)
+        #f)))
+
 (define *layerscript-param-parsers*
-  `((int ,(lambda (s) (string2number s integer?)))))
+  `((int ,int-parser)
+    (pint ,(lambda (s) (int-parser s (lambda (n) (>= n 0)))))
+    (string ,(lambda (s) s))))
 
 (define (parse-param s parser)
-  (let ((parserfn (cadr (assq *layerscript-param-parsers* parser))))
-    (parserfn s)))
+  (and (> (string-length s) 0)
+       (let ((parserfn (cadr (assq parser *layerscript-param-parsers*))))
+         (parserfn s))))
 
 (define (process-param-list param-list)
   (let ((count 0))
