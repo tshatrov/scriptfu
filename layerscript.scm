@@ -58,6 +58,17 @@ exception as of GIMP 2.8. Returns #f if not a number."
                        (car (gimp-image-height img))
                        1 name 100 0)))
 
+(define (walk-layers-recursive-full img test fn)
+  "different from walk-layers-recursive from animstack.scm in that it
+recurses down a layer group even if it passes the test"
+  (let loop ((layers (cadr (gimp-image-get-layers img))))
+    (vector-for-each
+     (lambda (layer)
+       (if (test layer) (fn layer))
+       (if (is-true? gimp-item-is-group layer)
+           (loop (cadr (gimp-item-get-children layer)))))
+     layers)))
+
 ;; end library
 
 (define (parse-layerscript-tag string)
@@ -153,6 +164,80 @@ exception as of GIMP 2.8. Returns #f if not a number."
                (new-tat (number->string (car (gimp-item-get-tattoo layer)))))
           (set-parasite source-layer pname new-tat)
           layer))))
+
+;; actions
+
+; with-params
+; param parsers: number, color, ...
+
+(define (pop-params n params)
+  (let ((pv (make-vector n #f)))
+    (do ((i 0 (+ i 1))
+         (pl params (cdr pl)))
+        ((or (null? pl) (>= i n)) pv)
+      (vector-set! pv i (car pl)))))
+
+(define *layerscript-param-parsers*
+  `((int ,(lambda (s) (string2number s integer?)))))
+
+(define (parse-param s parser)
+  (let ((parserfn (cadr (assq *layerscript-param-parsers* parser))))
+    (parserfn s)))
+
+(define (process-param-list param-list)
+  (let ((count 0))
+    (map 
+     (lambda (param-def) 
+       (prog1
+        (let ((pdef-parser (cons param-def 'int)))
+          (if (pair? param-def)
+              (if (pair? (car param-def))
+                  (set! pdef-parser (cons (caar param-def) (cadar param-def)))
+                  (set-car! pdef-parser (car param-def))))
+          (if (and (pair? param-def) (pair? (cdr param-def)))
+              `(,(car pdef-parser) 
+                (or (parse-param (vector-ref pv ,count) ',(cdr pdef-parser))
+                    (begin ,@(cdr param-def))))
+              `(,(car pdef-parser)
+                (parse-param (vector-ref pv ,count) ',(cdr pdef-parser)))))
+        (set! count (+ count 1))))
+     param-list)))
+
+;; (with-params (x y z) ....)
+(macro (with-params form)
+  (let ((param-list (cadr form))
+        (body (cddr form)))
+    `(let* ((pv (pop-params ,(length param-list) params))
+            ,@(process-param-list param-list))
+       ,@body)))
+
+
+
+
+;; main loop
+
+(define (layerscript-process-tag img layer tag tag-index)
+  (let ((layer-index 0)
+        )
+    (for-each 
+     (lambda (action)
+       (let* ((parsed (string-split action #\:))
+              (name (car parsed))
+              (args (cdr parsed)))
+         
+
+
+         ))
+     tag)))
+
+
+(define (layerscript-process-layer img layer)
+  (let ((tags (extract-layerscript-tags layer)))
+    
+  ))
+
+
+
 
 
 ))
