@@ -69,6 +69,24 @@ recurses down a layer group even if it passes the test"
            (loop (cadr (gimp-item-get-children layer)))))
      layers)))
 
+(define save-selection #f)
+(define restore-selection #f)
+
+(let ((sel #f))
+  (set! save-selection
+        (lambda (img)
+          (set! sel #f)
+          (if (is-true? gimp-selection-bounds img)
+              (set! sel (car (gimp-selection-save img))))))
+  (set! restore-selection
+        (lambda (img)
+          (if sel
+              (begin
+                (gimp-selection-load sel)
+                (gimp-image-remove-channel img sel))
+              (gimp-selection-none img)))))
+
+
 ;; end library
 
 (define (parse-layerscript-tag string)
@@ -150,7 +168,7 @@ recurses down a layer group even if it passes the test"
                (prev-tat (list-get tattoo-list (- layer-index 1)))
                (cur-layer (get-layer-by-tattoo img cur-tat))
                (prev-layer (get-layer-by-tattoo img prev-tat)))
-          (or cur-layer
+          (or (cons cur-layer #f)
               (begin
                 (if prev-layer (set! pos-layer prev-layer))
                 (let* ((layer (make-layerscript-layer img pos-layer lname cur-tat))
@@ -159,11 +177,11 @@ recurses down a layer group even if it passes the test"
                       (set-car! (list-tail tattoo-list layer-index) new-tat)
                       (set! tattoo-list (append tattoo-list (list new-tat))))
                   (set-parasite source-layer pname (string-join tattoo-list " "))
-                  layer))))
+                  (cons layer #t)))))
         (let* ((layer (make-layerscript-layer img pos-layer lname #f))
                (new-tat (number->string (car (gimp-item-get-tattoo layer)))))
           (set-parasite source-layer pname new-tat)
-          layer))))
+          (cons layer #t)))))
 
 ;; actions
 
@@ -213,6 +231,7 @@ recurses down a layer group even if it passes the test"
      param-list)))
 
 ;; (with-params (x y z) ....)
+;; 1. param 2. (param default) 3. ((param type)) 4. ((param type) default)   
 (macro (with-params form)
   (let ((param-list (cadr form))
         (body (cddr form)))
@@ -221,23 +240,49 @@ recurses down a layer group even if it passes the test"
        ,@body)))
 
 
+(define (layerscript-alpha img params)
+  (lambda (source target opts)
+    ))
+  
+
+
+(define *layerscript-actions*
+  `(("alpha" ,layerscript-alpha)))
 
 
 ;; main loop
 
+(define (parse-action img action)
+  (let* ((parsed (string-split action #\:))
+         (name (car parsed))
+         (args (cdr parser))
+         (action-fn (cond ((assoc name *layerscript-actions*) => cdr) (else #f))))
+    (and action-fn (action-fn img args))))
+
 (define (layerscript-process-tag img layer tag tag-index)
-  (let ((layer-index 0)
+  (save-selection img)
+  (let ((opts (list 0 0)) ;; (layer-index current-source)
+        (pos-layer layer)
+        (max-index 0)
         )
     (for-each 
-     (lambda (action)
-       (let* ((parsed (string-split action #\:))
-              (name (car parsed))
-              (args (cdr parsed)))
-         
-
-
-         ))
-     tag)))
+     (lambda (action-str)
+       (let ((action (parse-action img action-str)))
+         (if action
+             (let* ((layer-index (car opts))
+                    (gll (get-linked-layer img layer pos-layer tag-index layer-index))
+                    (current-source (- (cadr opts) 1)))
+               (when (cdr gll)
+                     (set! pos-layer (car gll))
+                     (set! visited layer-index))
+               (let ((source-layer (if (or (= current-source -1) 
+                                           (> current-source max-index))
+                                       layer
+                                      (car (get-linked-layer img layer pos-layer 
+                                                             tag-index current-source)))))
+                 (action source-layer (car gll) opts))))))
+     tag))
+  (restore-selection img))
 
 
 (define (layerscript-process-layer img layer)
