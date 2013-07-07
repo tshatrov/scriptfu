@@ -64,7 +64,7 @@ recurses down a layer group even if it passes the test"
   (let loop ((layers (cadr (gimp-image-get-layers img))))
     (vector-for-each
      (lambda (layer)
-       (if (test layer) (fn layer))
+       (if (or (not test) (test layer)) (fn layer))
        (if (is-true? gimp-item-is-group layer)
            (loop (cadr (gimp-item-get-children layer)))))
      layers)))
@@ -72,20 +72,23 @@ recurses down a layer group even if it passes the test"
 (define save-selection #f)
 (define restore-selection #f)
 
-(let ((sel #f))
+(let ((sel '()))
   (set! save-selection
         (lambda (img)
-          (set! sel #f)
-          (if (is-true? gimp-selection-bounds img)
-              (set! sel (car (gimp-selection-save img))))))
+          (let ((sel-new #f))
+            (if (is-true? gimp-selection-bounds img)
+                (set! sel-new (car (gimp-selection-save img))))
+            (set! sel (cons sel-new sel)))))
   (set! restore-selection
         (lambda (img)
-          (if sel
-              (begin
-                (gimp-selection-load sel)
-                (gimp-image-remove-channel img sel))
-              (gimp-selection-none img)))))
-
+          (when (pair? sel)
+                (let ((s (car sel)))
+                  (set! sel (cdr sel))
+                  (if s
+                      (begin
+                        (gimp-selection-load s)
+                        (gimp-image-remove-channel img s))
+                      (gimp-selection-none img)))))))
 
 ;; end library
 
@@ -198,7 +201,7 @@ recurses down a layer group even if it passes the test"
 (define (int-parser s . args)
   (let ((n (string2number s)))
     (if (and n (or (null? args) ((car args) n)))
-        (inexact->exact n)
+        (inexact->exact (round n))
         #f)))
 
 (define *layerscript-param-parsers*
@@ -207,7 +210,7 @@ recurses down a layer group even if it passes the test"
     (string ,(lambda (s) s))))
 
 (define (parse-param s parser)
-  (and (> (string-length s) 0)
+  (and s (> (string-length s) 0)
        (let ((parserfn (cadr (assq parser *layerscript-param-parsers*))))
          (parserfn s))))
 
@@ -240,30 +243,93 @@ recurses down a layer group even if it passes the test"
        ,@body)))
 
 
-(define (layerscript-alpha img params)
-  (lambda (source target opts)
-    ))
-  
+;; selection actions
 
+(define (layerscript-alpha img params)
+  (with-params 
+   ((mode 2))
+   (if (or (< mode 0) (> mode 3)) (set! mode 2))
+   (lambda (source target opts)
+     (gimp-image-select-item img mode source))))
+  
+(define (layerscript-all img params)
+  (lambda (source target opts)
+    (gimp-selection-all img)))
+
+(define (layerscript-none img params)
+  (lambda (source target opts)
+    (gimp-selection-none img)))
+
+(define (layerscript-invert img params)
+  (lambda (source target opts)
+    (gimp-selection-invert img)))
+
+(define (layerscript-grow img params)
+  (with-params
+   ((steps 1))
+   (let* ((fn (if (< steps 0) gimp-selection-shrink gimp-selection-grow))
+          (steps (abs steps)))
+     (lambda (source target opts)
+       (fn img steps)))))
+
+(define (layerscript-feather img params)
+  (with-params
+   (((radius pint) 1))
+   (lambda (source target opts)
+     (gimp-selection-feather img radius))))
+
+
+;; lbox (layer bounding box)
+;; abox (alpha bounding box)
+
+;; editing actions
+
+(define (layerscript-copy img params)
+  (with-params
+   ((check-selection 0))
+   (lambda (source target opts)
+     (save-selection img)
+     (if (and (or (= check-selection 0)
+                  (is-true? gimp-selection-bounds img))
+               (is-true? gimp-edit-copy source))
+         (let ((fl (car (gimp-edit-paste target FALSE))))
+           (gimp-floating-sel-anchor fl)))
+     (restore-selection img))))
 
 (define *layerscript-actions*
-  `(("alpha" ,layerscript-alpha)))
+  `(("alpha" ,layerscript-alpha)
+    ("all" ,layerscript-all)
+    ("none" ,layerscript-none)
+    ("invert" ,layerscript-invert)
+    ("grow" ,layerscript-grow)
+    ("feather" ,layerscript-feather)
+    ("copy" ,layerscript-copy)
+    ))
 
 
 ;; main loop
 
+(define (clear-layer img layer)
+  (save-selection img)
+  (gimp-selection-none img)
+  (gimp-edit-clear layer)
+  (restore-selection img)
+  )
+
 (define (parse-action img action)
   (let* ((parsed (string-split action #\:))
          (name (car parsed))
-         (args (cdr parser))
-         (action-fn (cond ((assoc name *layerscript-actions*) => cdr) (else #f))))
+         (args (cdr parsed))
+         (action-fn (cond ((assoc name *layerscript-actions*) => cadr) (else #f))))
     (and action-fn (action-fn img args))))
 
-(define (layerscript-process-tag img layer tag tag-index)
+(define (layerscript-process-tag img layer pos-layer tag tag-index)
   (save-selection img)
-  (let ((opts (list 0 0)) ;; (layer-index current-source)
-        (pos-layer layer)
-        (max-index 0)
+  ;; TODO: allow to assign starting selection
+  (gimp-selection-none img)
+
+  (let ((opts (list 0 0 layer)) ;; (layer-index current-source master-layer)
+        (max-index -1)
         )
     (for-each 
      (lambda (action-str)
@@ -272,26 +338,56 @@ recurses down a layer group even if it passes the test"
              (let* ((layer-index (car opts))
                     (gll (get-linked-layer img layer pos-layer tag-index layer-index))
                     (current-source (- (cadr opts) 1)))
-               (when (cdr gll)
-                     (set! pos-layer (car gll))
-                     (set! visited layer-index))
+               (if (cdr gll)
+                   (set! pos-layer (car gll)))
+               (when (> layer-index max-index)
+                     (set! max-index layer-index)
+                     (if (not (cdr gll)) (clear-layer img (car gll))))
                (let ((source-layer (if (or (= current-source -1) 
                                            (> current-source max-index))
                                        layer
                                       (car (get-linked-layer img layer pos-layer 
                                                              tag-index current-source)))))
                  (action source-layer (car gll) opts))))))
-     tag))
-  (restore-selection img))
+     tag)
+    (restore-selection img)
+    pos-layer))
 
 
 (define (layerscript-process-layer img layer)
-  (let ((tags (extract-layerscript-tags layer)))
-    
+  (let ((tags (extract-layerscript-tags layer))
+        (pos-layer layer)
+        (tag-index 0))
+    (for-each
+     (lambda (tag)
+       (set! pos-layer (layerscript-process-tag img layer pos-layer tag tag-index))
+       (set! tag-index (+ tag-index 1))
+       )
+     tags)
   ))
 
-
-
-
+(define (layerscript-process-all img)
+  (srand (realtime))
+  (gimp-image-undo-group-start img)
+  (walk-layers-recursive-full 
+   img #f
+   (lambda (layer) (layerscript-process-layer img layer)))
+  (gimp-image-undo-group-end img)
+  (gimp-displays-flush))
 
 ))
+
+(define script-fu-layerscript-process-all lscr::layerscript-process-all)
+
+(script-fu-register
+ "script-fu-layerscript-process-all"
+ "Process LayerScript tags"
+ "Process all LayerScript tags"
+ "Timofei Shatrov"
+ "Copyright 2013"
+ "July 7, 2013"
+ "RGB RGBA GRAY GRAYA" 
+ SF-IMAGE     "Image to use"       0
+ )
+
+(script-fu-menu-register "script-fu-layerscript-process-all" "<Image>/Script-Fu/LayerScript")
