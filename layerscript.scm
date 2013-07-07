@@ -186,6 +186,19 @@ recurses down a layer group even if it passes the test"
           (set-parasite source-layer pname new-tat)
           (cons layer #t)))))
 
+(define *parasite-color-prefix* "lscrcolor")
+
+(define (get-color-from-register img layer n)
+  (let* ((pname (string-append *parasite-color-prefix* "-" (number->string n)))
+         (par (get-parasite layer pname)))
+    (if par
+        (color-parser (caddr par))
+        (let* ((fg (car (gimp-context-get-foreground)))
+               (fgs (map number->string fg))
+               (fgstring (string-append "(" (car fgs) "," (cadr fgs) "," (caddr fgs) ")")))
+          (set-parasite layer pname fgstring)
+          fg))))
+
 ;; actions
 
 ; with-params
@@ -204,10 +217,48 @@ recurses down a layer group even if it passes the test"
         (inexact->exact (round n))
         #f)))
 
+(define pint-parser
+  (lambda (s) (int-parser s (lambda (n) (>= n 0)))))
+
+;; color can be either an integer, which means a color register
+;; or #hhhhhh or (r,g,b)
+
+(define (hex2decimal char)
+  (case char
+    ((#\0) 0) ((#\1) 1) ((#\2) 2) ((#\3) 3) ((#\4) 4)
+    ((#\5) 5) ((#\6) 6) ((#\7) 7) ((#\8) 8) ((#\9) 9)
+    ((#\a) 10) ((#\A) 10) ((#\b) 11) ((#\B) 11) ((#\c) 12) ((#\C) 12)
+    ((#\d) 13) ((#\D) 13) ((#\e) 14) ((#\E) 14) ((#\f) 15) ((#\F) 15)
+    (else #f)))
+
+(define (hex2rgb s)
+  (let ((digits (map hex2decimal (string->list (substring s 1 7)))))
+    (if (memv #f digits) #f
+        (let loop ((lst digits))
+          (if (null? lst) '()
+              (cons (+ (* 16 (car lst)) (cadr lst)) (loop (cddr lst))))))))
+
+(define (color-parser s)
+  (case (string-ref s 0)
+    ((#\#) 
+     (and (= (string-length s) 7)
+          (hex2rgb s)))
+    ((#\()
+     (let ((sl (- (string-length s) 1)))
+       (and (> sl 0)
+            (char=? (string-ref s sl) #\))
+            (let ((rgb (string-split (substring s 1 sl) #\,)))
+              (and (= (length rgb) 3)
+                   (let ((nrgb (map (lambda (s) (int-parser s (lambda (n) (<= 0 n 255)))) rgb)))
+                     (if (memv #f nrgb) #f nrgb)))))))
+    (else (pint-parser s))))
+
 (define *layerscript-param-parsers*
   `((int ,int-parser)
-    (pint ,(lambda (s) (int-parser s (lambda (n) (>= n 0)))))
-    (string ,(lambda (s) s))))
+    (pint ,pint-parser)
+    (string ,(lambda (s) s))
+    (color ,color-parser)
+    ))
 
 (define (parse-param s parser)
   (and s (> (string-length s) 0)
