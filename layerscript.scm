@@ -139,6 +139,11 @@ recurses down a layer group even if it passes the test"
 (define (set-parasite item name value)
   (gimp-item-attach-parasite item (list name 3 value)))
 
+(define (remove-parasite item name)
+  (let ((plist (cadr (gimp-item-get-parasite-list item))))
+    (and (member string plist)
+         (gimp-item-detach-parasite item string))))
+
 (define (get-layer-by-tattoo img tat)
   (and tat
        (string2number tat)
@@ -171,7 +176,8 @@ recurses down a layer group even if it passes the test"
                (prev-tat (list-get tattoo-list (- layer-index 1)))
                (cur-layer (get-layer-by-tattoo img cur-tat))
                (prev-layer (get-layer-by-tattoo img prev-tat)))
-          (or (cons cur-layer #f)
+          (if cur-layer 
+              (cons cur-layer #f)
               (begin
                 (if prev-layer (set! pos-layer prev-layer))
                 (let* ((layer (make-layerscript-layer img pos-layer lname cur-tat))
@@ -188,16 +194,24 @@ recurses down a layer group even if it passes the test"
 
 (define *parasite-color-prefix* "lscrcolor")
 
-(define (get-color-from-register img layer n)
+(define (color2string color)
+  (let ((cs (map number->string color)))
+    (string-append "(" (car cs) "," (cadr cs) "," (caddr cs) ")")))
+
+(define (get-color-from-register layer n)
   (let* ((pname (string-append *parasite-color-prefix* "-" (number->string n)))
          (par (get-parasite layer pname)))
     (if par
         (color-parser (caddr par))
-        (let* ((fg (car (gimp-context-get-foreground)))
-               (fgs (map number->string fg))
-               (fgstring (string-append "(" (car fgs) "," (cadr fgs) "," (caddr fgs) ")")))
-          (set-parasite layer pname fgstring)
+        (let* ((fg (car (gimp-context-get-foreground))))
+          (set-parasite layer pname (color2string fg))
           fg))))
+
+(define (layerscript-modify-color-register img layer n color remove)
+  (let ((pname (string-append *parasite-color-prefix* "-" (number->string n))))
+    (if (= remove TRUE)
+        (remove-parasite layer pname)
+        (set-parasite layer pname (color2string color)))))
 
 ;; actions
 
@@ -347,6 +361,46 @@ recurses down a layer group even if it passes the test"
            (gimp-floating-sel-anchor fl)))
      (restore-selection img))))
 
+(define (layerscript-fill img params)
+  (with-params
+   (((color color) 0) (check-selection 0))
+   (lambda (source target opts)
+     (let ((c (if (pair? color) color 
+                  (get-color-from-register (caddr opts) color))))
+       (when (or (= check-selection 0)
+                 (is-true? gimp-selection-bounds img))
+             (gimp-context-push)
+             (gimp-context-set-foreground c)
+             (gimp-edit-fill target 0)
+             (gimp-context-pop))))))
+
+;; meta actions
+
+(define (layerscript-source img params)
+  (with-params
+   (((src pint) 0))
+   (lambda (source target opts)
+     (set-car! (cdr opts) src))))
+
+(define (layerscript-next img params)
+  (with-params
+   (((src pint)))
+   (lambda (source target opts)
+     (set-car! (cdr opts) (if src src (+ (car opts) 1)))
+     (set-car! opts (+ (car opts) 1)))))
+         
+(define (layerscript-prev img params)
+  (with-params
+   (((src pint)))
+   (lambda (source target opts)
+     (let ((li (car opts)))
+       (cond ((> li 0)
+              (set-car! (cdr opts) (if src src (- li 1)))
+              (set-car! opts (- li 1)))
+             (src (set-car! (cdr opts) src)))))))
+
+
+
 (define *layerscript-actions*
   `(("alpha" ,layerscript-alpha)
     ("all" ,layerscript-all)
@@ -355,6 +409,12 @@ recurses down a layer group even if it passes the test"
     ("grow" ,layerscript-grow)
     ("feather" ,layerscript-feather)
     ("copy" ,layerscript-copy)
+    ("fill" ,layerscript-fill)
+    ("source" ,layerscript-source)
+    (">" ,layerscript-next)
+    ("next" ,layerscript-next)
+    ("<" ,layerscript-prev)
+    ("prev" ,layerscript-prev)
     ))
 
 
@@ -442,3 +502,22 @@ recurses down a layer group even if it passes the test"
  )
 
 (script-fu-menu-register "script-fu-layerscript-process-all" "<Image>/Script-Fu/LayerScript")
+
+(define script-fu-layerscript-modify-color-register lscr::layerscript-modify-color-register)
+
+(script-fu-register
+ "script-fu-layerscript-modify-color-register"
+ "Modify color registers..."
+ "Modify a color register attached to active layer"
+ "Timofei Shatrov"
+ "Copyright 2013"
+ "July 8, 2013"
+ "RGB RGBA GRAY GRAYA"
+ SF-IMAGE     "Image to use"       0
+ SF-DRAWABLE  "Current layer"      0
+ SF-ADJUSTMENT "Register" '(0 0 255 1 1 0 SF-SPINNER)
+ SF-COLOR "Color" '(0 0 0)
+ SF-TOGGLE "Clear register" 0
+ )
+
+(script-fu-menu-register "script-fu-layerscript-modify-color-register" "<Image>/Script-Fu/LayerScript")
