@@ -480,9 +480,12 @@ recurses down a layer group even if it passes the test"
 (define (layerscript-process-all img)
   (srand (realtime))
   (gimp-image-undo-group-start img)
-  (walk-layers-recursive-full 
-   img #f
-   (lambda (layer) (layerscript-process-layer img layer)))
+  (let ((active-layer (car (gimp-image-get-active-layer img))))
+    (walk-layers-recursive-full 
+     img #f
+     (lambda (layer) (layerscript-process-layer img layer)))
+    (if (not (= active-layer -1))
+        (gimp-image-set-active-layer img active-layer)))
   (gimp-image-undo-group-end img)
   (gimp-displays-flush))
 
