@@ -267,11 +267,23 @@ recurses down a layer group even if it passes the test"
                      (if (memv #f nrgb) #f nrgb)))))))
     (else (pint-parser s))))
 
+(define *layerscript-selmode-assoc*
+  '(("+" 0) ("add" 0) 
+    ("-" 1) ("subtract" 1)
+    ("=" 2) ("replace" 2)
+    ("^" 3) ("x" 3) ("intersect" 3)))
+
+(define (selmode-parser s)
+  (let ((as (assoc s *layerscript-selmode-assoc*)))
+    (if as (cadr as)
+        (int-parser s (lambda (n) (<= 0 n 3))))))
+
 (define *layerscript-param-parsers*
   `((int ,int-parser)
     (pint ,pint-parser)
     (string ,(lambda (s) s))
     (color ,color-parser)
+    (selmode ,selmode-parser)
     ))
 
 (define (parse-param s parser)
@@ -312,8 +324,7 @@ recurses down a layer group even if it passes the test"
 
 (define (layerscript-alpha img params)
   (with-params 
-   ((mode 2))
-   (if (or (< mode 0) (> mode 3)) (set! mode 2))
+   (((mode selmode) 2))
    (lambda (source target opts)
      (gimp-image-select-item img mode source))))
   
@@ -343,6 +354,24 @@ recurses down a layer group even if it passes the test"
    (lambda (source target opts)
      (gimp-selection-feather img radius))))
 
+(define (layerscript-smove img params)
+  (with-params
+   ((x 0) (y 0))
+   (lambda (source target opts)
+     (gimp-selection-translate img x y))))
+
+(define (select-rectangle img op x y width height)
+  (gimp-context-set-feather FALSE)
+  (gimp-image-select-rectangle img op x y width height))
+
+(define (layerscript-lbox img params)
+  (with-params
+   (((mode selmode) 2))
+   (lambda (source target opts)
+     (let ((xy (gimp-drawable-offsets source))
+           (width (car (gimp-drawable-width source)))
+           (height (car (gimp-drawable-height source))))
+       (select-rectangle img mode (car xy) (cadr xy) width height)))))
 
 ;; lbox (layer bounding box)
 ;; abox (alpha bounding box)
@@ -408,8 +437,13 @@ recurses down a layer group even if it passes the test"
     ("invert" ,layerscript-invert)
     ("grow" ,layerscript-grow)
     ("feather" ,layerscript-feather)
+    ("smove" ,layerscript-smove)
+    ("lbox" ,layerscript-lbox)
+
+
     ("copy" ,layerscript-copy)
     ("fill" ,layerscript-fill)
+
     ("source" ,layerscript-source)
     (">" ,layerscript-next)
     ("next" ,layerscript-next)
