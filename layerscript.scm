@@ -33,6 +33,13 @@ exception as of GIMP 2.8. Returns #f if not a number."
 (define (int-round x)
   (inexact->exact (round x)))
 
+(define *pi* (* (atan 1.0) 4))
+
+(define (vec-rotate x y angle)
+  (let ((len (sqrt (+ (* x x) (* y y))))
+        (angle (/ (* *pi* angle) 180)))
+    (cons (* len (sin angle)) (- (* len (cos angle))))))
+
 (define (string-split string char)
   (let ((res (list)))
     (do ((i (string-length string) (- i 1))
@@ -100,6 +107,12 @@ recurses down a layer group even if it passes the test"
                       (gimp-image-remove-channel img s))
                     (gimp-selection-none img))))))
   )
+
+(define (multicall . fns)
+  (lambda args
+    (for-each
+     (lambda (fn) (apply fn args))
+     fns)))
 
 ;; end library
 
@@ -292,6 +305,7 @@ recurses down a layer group even if it passes the test"
 (define *layerscript-param-parsers*
   `((int ,int-parser)
     (pint ,pint-parser)
+    (float ,string2number)
     (string ,(lambda (s) s))
     (color ,color-parser)
     (selmode ,selmode-parser)
@@ -302,7 +316,10 @@ recurses down a layer group even if it passes the test"
        (let ((parserfn (cadr (assq parser *layerscript-param-parsers*))))
          (parserfn s))))
 
-(define (process-param-list param-list)
+(define (add-unparsed-sigil sym)
+  (string->symbol (string-append "$" (symbol->string sym))))
+
+(define (process-param-list param-list unparsed)
   (let ((count 0))
     (map 
      (lambda (param-def) 
@@ -312,12 +329,14 @@ recurses down a layer group even if it passes the test"
               (if (pair? (car param-def))
                   (set! pdef-parser (cons (caar param-def) (cadar param-def)))
                   (set-car! pdef-parser (car param-def))))
-          (if (and (pair? param-def) (pair? (cdr param-def)))
-              `(,(car pdef-parser) 
-                (or (parse-param (vector-ref pv ,count) ',(cdr pdef-parser))
-                    (begin ,@(cdr param-def))))
-              `(,(car pdef-parser)
-                (parse-param (vector-ref pv ,count) ',(cdr pdef-parser)))))
+          (if unparsed
+              `(,(add-unparsed-sigil (car pdef-parser)) (vector-ref pv ,count))
+              (if (and (pair? param-def) (pair? (cdr param-def)))
+                  `(,(car pdef-parser) 
+                    (or (parse-param (vector-ref pv ,count) ',(cdr pdef-parser))
+                        (begin ,@(cdr param-def))))
+                  `(,(car pdef-parser)
+                    (parse-param (vector-ref pv ,count) ',(cdr pdef-parser))))))
         (set! count (+ count 1))))
      param-list)))
 
@@ -327,9 +346,17 @@ recurses down a layer group even if it passes the test"
   (let ((param-list (cadr form))
         (body (cddr form)))
     `(let* ((pv (pop-params ,(length param-list) params))
-            ,@(process-param-list param-list))
+            ,@(process-param-list param-list #f)
+            ,@(process-param-list param-list #t))
        ,@body)))
 
+(define (stringify value)
+  (cond ((pair? value) (color2string value))
+        ((number? value) (number->string value))
+        (else value)))
+
+(define (make-plist . args)
+  (map stringify args))
 
 ;; selection actions
 
@@ -367,7 +394,11 @@ recurses down a layer group even if it passes the test"
 
 (define (layerscript-smove img params)
   (with-params
-   ((x 0) (y 0))
+   (((x float) 0) ((y float) 0) ((angle float)))
+   (if angle
+       (let ((vr (vec-rotate x y angle)))
+         (set! x (car vr))
+         (set! y (cdr vr))))
    (lambda (source target opts)
      (gimp-selection-translate img x y))))
 
@@ -438,7 +469,7 @@ recurses down a layer group even if it passes the test"
 
 (define (layerscript-blurshape img params)
   (with-params
-   (((color color) 0) (init 5) (size 5) (invert 0))
+   (((color color) 0) (init 3) (size 5) (invert 0))
    (lambda (source target opts)
      (gimp-context-push)
      (save-selection img)
@@ -467,6 +498,30 @@ recurses down a layer group even if it passes the test"
         (set! i (+ i 1))))
      (restore-selection img)
      (gimp-context-pop))))
+
+
+(define (layerscript-dropshadow img params)
+  (with-params
+   (((color color) '(0 0 0)) ((opacity float) 75) ((size pint) 5) 
+    ((offset-angle float) 120) ((offset-distance float) 5))
+   (let* ((f1 (layerscript-alpha img '()))
+          (f2 (layerscript-smove img (make-plist offset-distance #f offset-angle)))
+          (init (ceiling (/ size 2)))
+          (f3 (layerscript-blurshape img (make-plist color init size)))
+          (f4 (layerscript-opacity img (make-plist opacity))))
+     (multicall f1 f2 f3 f4))))
+
+
+;; layer actions
+
+(define (layerscript-opacity img params)
+  (with-params
+   (((opacity float) 100))
+   (if (< opacity 0) (set! opacity 0))
+   (if (> opacity 100) (set! opacity 100))
+   (lambda (source target opts)
+     (gimp-layer-set-opacity target opacity))))
+
 
 ;; meta actions
 
@@ -510,7 +565,9 @@ recurses down a layer group even if it passes the test"
     ("fill" ,layerscript-fill)
     ("clear" ,layerscript-clear)
     ("blurshape" ,layerscript-blurshape)
+    ("dropshadow" ,layerscript-dropshadow)
     
+    ("opacity" ,layerscript-opacity)
 
     ("source" ,layerscript-source)
     (">" ,layerscript-next)
