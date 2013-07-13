@@ -71,6 +71,7 @@ recurses down a layer group even if it passes the test"
 
 (define save-selection #f)
 (define restore-selection #f)
+(define rollback-selection #f)
 
 (let ((sel '()))
   (set! save-selection
@@ -79,16 +80,26 @@ recurses down a layer group even if it passes the test"
             (if (is-true? gimp-selection-bounds img)
                 (set! sel-new (car (gimp-selection-save img))))
             (set! sel (cons sel-new sel)))))
+
+  (set! rollback-selection
+        (lambda (img)
+          (if (pair? sel)
+              (let ((s (car sel)))
+                (if s
+                    (gimp-selection-load s)
+                    (gimp-selection-none img))))))
+
   (set! restore-selection
         (lambda (img)
-          (when (pair? sel)
-                (let ((s (car sel)))
-                  (set! sel (cdr sel))
-                  (if s
-                      (begin
-                        (gimp-selection-load s)
-                        (gimp-image-remove-channel img s))
-                      (gimp-selection-none img)))))))
+          (if (pair? sel)
+              (let ((s (car sel)))
+                (set! sel (cdr sel))
+                (if s
+                    (begin
+                      (gimp-selection-load s)
+                      (gimp-image-remove-channel img s))
+                    (gimp-selection-none img))))))
+  )
 
 ;; end library
 
@@ -373,8 +384,22 @@ recurses down a layer group even if it passes the test"
            (height (car (gimp-drawable-height source))))
        (select-rectangle img mode (car xy) (cadr xy) width height)))))
 
-;; lbox (layer bounding box)
+;; TODO
 ;; abox (alpha bounding box)
+;; sbox (selection bounding box)
+
+(define (fade-selection img level)
+  (let ((sel (car (gimp-image-get-selection img))))
+    (gimp-levels sel 0 0 255 1 0 level)))
+
+(define (layerscript-fade img params)
+  (with-params
+   (((level pint) 128) (check-selection 0))
+   (if (> level 255) (set! level 255))
+   (lambda (source target opts)
+     (if (or (= check-selection 0)
+             (is-true? gimp-selection-bounds img))
+         (fade-selection img level)))))
 
 ;; editing actions
 
@@ -402,6 +427,40 @@ recurses down a layer group even if it passes the test"
              (gimp-context-set-foreground c)
              (gimp-edit-fill target 0)
              (gimp-context-pop))))))
+
+(define (layerscript-clear img params)
+  (with-params
+   ((check-selection 0))
+   (lambda (source target opts)
+     (if (or (= check-selection 0)
+               (is-true? gimp-selection-bounds img))
+         (gimp-edit-clear target)))))
+
+(define (layerscript-blurshape img params)
+  (with-params
+   (((color color) 0) (init 5) (size 5)) ;; (invert 0))
+   (lambda (source target opts)
+     (gimp-context-push)
+     (save-selection img)
+     (let ((curcolor (if (pair? color) color (get-color-from-register (caddr opts) color)))
+           (k init)
+           (i 0))
+       (gimp-context-set-foreground curcolor)
+       (while 
+        (< i size)
+        (cond ((> k 0) (gimp-selection-grow img k))
+              ((< k 0) (gimp-selection-shrink img (abs k))))
+        
+        ;; this is wrong
+        (when (is-true? gimp-selection-bounds img)
+              (fade-selection img (* (/ 1 (- size i)) 255))
+              (gimp-edit-fill target 0))
+
+        (rollback-selection img)
+        (set! k (- k 1))
+        (set! i (+ i 1))))
+     (restore-selection img)
+     (gimp-context-pop))))
 
 ;; meta actions
 
@@ -439,10 +498,13 @@ recurses down a layer group even if it passes the test"
     ("feather" ,layerscript-feather)
     ("smove" ,layerscript-smove)
     ("lbox" ,layerscript-lbox)
-
+    ("fade" ,layerscript-fade)
 
     ("copy" ,layerscript-copy)
     ("fill" ,layerscript-fill)
+    ("clear" ,layerscript-clear)
+    ("blurshape" ,layerscript-blurshape)
+    
 
     ("source" ,layerscript-source)
     (">" ,layerscript-next)
