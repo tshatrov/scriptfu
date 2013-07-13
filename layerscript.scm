@@ -438,7 +438,7 @@ recurses down a layer group even if it passes the test"
 
 (define (layerscript-blurshape img params)
   (with-params
-   (((color color) 0) (init 5) (size 5)) ;; (invert 0))
+   (((color color) 0) (init 5) (size 5) (invert 0))
    (lambda (source target opts)
      (gimp-context-push)
      (save-selection img)
@@ -451,10 +451,16 @@ recurses down a layer group even if it passes the test"
         (cond ((> k 0) (gimp-selection-grow img k))
               ((< k 0) (gimp-selection-shrink img (abs k))))
         
-        ;; this is wrong
-        (when (is-true? gimp-selection-bounds img)
-              (fade-selection img (* (/ 1 (- size i)) 255))
-              (gimp-edit-fill target 0))
+        (if (is-true? gimp-selection-bounds img)
+            (cond ((= invert 0)
+                   (fade-selection img (* (/ 1 (- size i)) 255))
+                   (gimp-edit-fill target 0))
+                  ((= i 0)
+                   (fade-selection img (* (/ (- size 1) size) 255))
+                   (gimp-edit-fill target 0))
+                  (else
+                   (fade-selection img (* (/ 1 (- size i)) 255))
+                   (gimp-edit-clear target))))
 
         (rollback-selection img)
         (set! k (- k 1))
