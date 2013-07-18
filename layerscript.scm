@@ -392,7 +392,7 @@ recurses down a layer group even if it passes the test"
    (lambda (source target opts)
      (gimp-selection-feather img radius))))
 
-(define (layerscript-smove img params)
+(define (layerscript-move-core img params fn)
   (with-params
    (((x float) 0) ((y float) 0) ((angle float)))
    (if angle
@@ -400,7 +400,13 @@ recurses down a layer group even if it passes the test"
          (set! x (car vr))
          (set! y (cdr vr))))
    (lambda (source target opts)
-     (gimp-selection-translate img x y))))
+     (fn img target x y))))
+
+(define (layerscript-move-selection img params)
+  (layerscript-move-core 
+   img params
+   (lambda (img target x y)
+     (gimp-selection-translate img x y))))  
 
 (define (select-rectangle img op x y width height)
   (gimp-context-set-feather FALSE)
@@ -415,9 +421,20 @@ recurses down a layer group even if it passes the test"
            (height (car (gimp-drawable-height source))))
        (select-rectangle img mode (car xy) (cadr xy) width height)))))
 
+(define (layerscript-sbox img params)
+  (with-params
+   (((mode selmode) 2))
+   (lambda (source target opts)
+     (let ((bounds (gimp-selection-bounds img)))
+       (if (= (car bounds) TRUE)
+           (let* ((x (cadr bounds))
+                  (y (caddr bounds))
+                  (width (- (list-ref bounds 3) x))
+                  (height (- (list-ref bounds 4) y)))
+             (select-rectangle img mode x y width height)))))))
+
 ;; TODO
 ;; abox (alpha bounding box)
-;; sbox (selection bounding box)
 
 (define (fade-selection img level)
   (let ((sel (car (gimp-image-get-selection img))))
@@ -505,7 +522,7 @@ recurses down a layer group even if it passes the test"
    (((color color) '(0 0 0)) ((opacity float) 75) ((size pint) 5) 
     ((offset-angle float) 120) ((offset-distance float) 5))
    (let* ((f1 (layerscript-alpha img '()))
-          (f2 (layerscript-smove img (make-plist offset-distance #f offset-angle)))
+          (f2 (layerscript-move-selection img (make-plist offset-distance #f offset-angle)))
           (init (ceiling (/ size 2)))
           (f3 (layerscript-blurshape img (make-plist color init size)))
           (f4 (layerscript-opacity img (make-plist opacity))))
@@ -522,6 +539,13 @@ recurses down a layer group even if it passes the test"
    (lambda (source target opts)
      (gimp-layer-set-opacity target opacity))))
 
+
+(define (layerscript-move-layer img params)
+  ;; TODO: ensure idempotency
+  (layerscript-move-core 
+   img params
+   (lambda (img target x y)
+     (gimp-layer-translate target x y))))
 
 ;; meta actions
 
@@ -557,8 +581,9 @@ recurses down a layer group even if it passes the test"
     ("invert" ,layerscript-invert)
     ("grow" ,layerscript-grow)
     ("feather" ,layerscript-feather)
-    ("smove" ,layerscript-smove)
+    ("smove" ,layerscript-move-selection)
     ("lbox" ,layerscript-lbox)
+    ("sbox" ,layerscript-sbox)
     ("fade" ,layerscript-fade)
 
     ("copy" ,layerscript-copy)
@@ -568,6 +593,7 @@ recurses down a layer group even if it passes the test"
     ("dropshadow" ,layerscript-dropshadow)
     
     ("opacity" ,layerscript-opacity)
+    ("move" ,layerscript-move-layer)
 
     ("source" ,layerscript-source)
     (">" ,layerscript-next)
