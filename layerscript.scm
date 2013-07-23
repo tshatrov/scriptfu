@@ -547,6 +547,11 @@ recurses down a layer group even if it passes the test"
    (lambda (img target x y)
      (gimp-layer-translate target x y))))
 
+(define (layerscript-move-layer-reset img params)
+  (lambda (target)
+    (gimp-layer-set-offsets target 0 0)
+    ))
+
 ;; meta actions
 
 (define (layerscript-source img params)
@@ -602,12 +607,24 @@ recurses down a layer group even if it passes the test"
     ("prev" ,layerscript-prev)
     ))
 
+(define *layerscript-actions-reset*
+  `(("move" ,layerscript-move-layer-reset)
+    (">" 1)
+    ("next" 1)
+    ("<" -1)
+    ("prev" -1)
+    ))
 
 ;; main loop
 
-(define (clear-layer img layer)
+(define (clear-layer img layer resets)
   (save-selection img)
   (gimp-selection-none img)
+  (if resets
+      (for-each
+       (lambda (reset)
+         (reset layer))
+       (cdr resets)))
   (gimp-edit-clear layer)
   (restore-selection img)
   )
@@ -619,6 +636,15 @@ recurses down a layer group even if it passes the test"
          (action-fn (cond ((assoc name *layerscript-actions*) => cadr) (else #f))))
     (and action-fn (action-fn img args))))
 
+(define (is-non-idempotent img action)
+  (let* ((parsed (string-split action #\:))
+         (name (car parsed))
+         (args (cdr parsed))
+         (reset-fn (cond ((assoc name *layerscript-actions-reset*) => cadr) (else #f))))
+    (cond ((not reset-fn) #f)
+          ((number? reset-fn) reset-fn)
+          (else (reset-fn img args)))))
+
 (define (layerscript-process-tag img layer pos-layer tag tag-index)
   (save-selection img)
   ;; TODO: allow to assign starting selection
@@ -626,7 +652,23 @@ recurses down a layer group even if it passes the test"
 
   (let ((opts (list 0 0 layer)) ;; (layer-index current-source master-layer)
         (max-index -1)
+        (cur-index 0)
+        (reset-map '())
         )
+
+    ;; process resets
+    (for-each
+     (lambda (action-str)
+       (let ((reset (is-non-idempotent img action-str)))
+         (cond ((not reset))
+               ((and (number? reset) (>= (+ cur-index reset) 0))
+                (set! cur-index (+ cur-index reset)))
+               (else (let ((a (assv cur-index reset-map)))
+                       (if a
+                           (set-cdr! a (cons reset (cdr a)))
+                           (set! reset-map (cons (list cur-index reset) reset-map))))))))
+     tag)
+
     (for-each 
      (lambda (action-str)
        (let ((action (parse-action img action-str)))
@@ -638,7 +680,7 @@ recurses down a layer group even if it passes the test"
                    (set! pos-layer (car gll)))
                (when (> layer-index max-index)
                      (set! max-index layer-index)
-                     (if (not (cdr gll)) (clear-layer img (car gll))))
+                     (if (not (cdr gll)) (clear-layer img (car gll) (assv layer-index reset-map))))
                (let ((source-layer (if (or (= current-source -1) 
                                            (> current-source max-index))
                                        layer
