@@ -59,11 +59,18 @@ exception as of GIMP 2.8. Returns #f if not a number."
   (let ((len (length lst)))
     (and (< -1 n len) (list-ref lst n))))
 
+(define (get-layer-type img)
+  (let ((base-type (car (gimp-image-base-type img))))
+    (case base-type
+      ((0) 1)
+      ((1) 3))))
+
 (define (make-image-sized-layer img name)
   (car (gimp-layer-new img
                        (car (gimp-image-width img))
                        (car (gimp-image-height img))
-                       1 name 100 0)))
+                       (get-layer-type img)
+                       name 100 0)))
 
 (define (walk-layers-recursive-full img test fn)
   "different from walk-layers-recursive from animstack.scm in that it
