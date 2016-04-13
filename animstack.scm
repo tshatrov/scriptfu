@@ -1,6 +1,6 @@
 ;;; GIMP Animation Tools
 ;;; by Timofei Shatrov
-;;; v. 0.61
+;;; v. 0.62
 
 (define (display-to-string value)
   "Prints anything to string using display function"
@@ -1297,36 +1297,34 @@ where tag might be #f"
            #t))))
 
 
-(define (animstack-get-disposal-mode str)
-  "mode can be (replace) or (combine) at the end of the string"
-  (let ((buffer (make-vector 2)))
-    (and (re-match "\\((combine|replace)\\)\\s*$" str buffer)
-         (let ((boundaries (vector-ref buffer 1)))
-           (substring str (car boundaries) (cdr boundaries))))))
+;; this function is bugged because re-match doesn't support unicode
+
+;; (define (animstack-get-disposal-mode str)
+;;   "mode can be (replace) or (combine) at the end of the string"
+;;   (let ((buffer (make-vector 2)))
+;;     (and (re-match "\\((combine|replace)\\)\\s*$" str buffer)
+;;          (let ((boundaries (vector-ref buffer 1)))
+;;            (substring str (car boundaries) (cdr boundaries))))))
 
 (define (add-frame-delay str delay)
   ;; we must find all substrings of the form (<number>ms) and remove them
-  (let* ((disposal-mode (animstack-get-disposal-mode str))
-         (add-disposal (lambda (str)
-                         (if disposal-mode
-                             (add-combine-replace str disposal-mode)
-                             str))))
-    (set! str (list->string
-               (let loop ((sl (string->list str)))
-                 (cond ((null? sl) (list))
-                       ((char=? (car sl) #\()
-                        (let* ((split (string-split (list->string (cdr sl)) #\)))
-                               (inside (car split))
-                               (len (string-length inside)))
-                          (if (and (> (length split) 1)
-                                   (> len 2)
-                                   (equal? (substring inside (- len 2) len) "ms")
-                                   (string2number (substring inside 0 (- len 2)) integer?))
-                              (loop (cdr (memv #\) sl)))
-                              (cons (car sl) (loop (cdr sl))))))
-                       (else (cons (car sl) (loop (cdr sl))))))))
-    (add-disposal
-     (if delay (string-append str " (" (number->string delay) "ms)") str))))
+  (set! str (list->string
+             (let loop ((sl (string->list str)))
+               (cond ((null? sl) (list))
+                     ((char=? (car sl) #\()
+                      (let* ((split (string-split (list->string (cdr sl)) #\)))
+                             (inside (car split))
+                             (len (string-length inside)))
+                        (if (and (> (length split) 1)
+                                 (> len 2)
+                                 (equal? (substring inside (- len 2) len) "ms")
+                                 (string2number (substring inside 0 (- len 2)) integer?))
+                            (loop (cdr (memv #\) sl)))
+                            (cons (car sl) (loop (cdr sl))))))
+                     (else (cons (car sl) (loop (cdr sl))))))))
+  (add-combine-replace
+   (if delay (string-append str " (" (number->string delay) "ms)") str)
+   "keep"))
 
 (define (animstack-delay img params)
   "Sets frame delay for target"
@@ -1344,21 +1342,26 @@ where tag might be #f"
          #t)))
 
 (define (add-combine-replace str mode)
-  (set! str (list->string
-        (let loop ((sl (string->list str)))
-          (cond ((null? sl) (list))
-                ((char=? (car sl) #\()
-                 (let* ((split (string-split (list->string (cdr sl)) #\)))
-                        (inside (car split))
-                        (len (string-length inside)))
-                   (if (and (> (length split) 1)
-                            (> len 2)
-                            (or (equal? inside "combine")
-                                (equal? inside "replace")))
-                       (loop (cdr (memv #\) sl)))
-                       (cons (car sl) (loop (cdr sl))))))
-                (else (cons (car sl) (loop (cdr sl))))))))
-  (if mode (string-append str " (" mode ")") str))
+  "mode can be \"keep\" to keep existing mode"
+  (let ((keep-mode (equal? mode "keep"))
+        (old-mode #f))
+    (set! str (list->string
+               (let loop ((sl (string->list str)))
+                 (cond ((null? sl) (list))
+                       ((char=? (car sl) #\()
+                        (let* ((split (string-split (list->string (cdr sl)) #\)))
+                               (inside (car split)))
+                          (if (and (> (length split) 1)
+                                     (or (equal? inside "combine")
+                                         (equal? inside "replace")))
+                              (begin
+                                (if keep-mode
+                                    (set! old-mode inside))
+                                (loop (cdr (memv #\) sl))))
+                              (cons (car sl) (loop (cdr sl))))))
+                       (else (cons (car sl) (loop (cdr sl))))))))
+    (let ((new-mode (if keep-mode old-mode mode)))
+      (if new-mode (string-append str " (" new-mode ")") str))))
 
 (define (animstack-replace img params)
   (with-params
@@ -1961,8 +1964,8 @@ where tag might be #f"
  "Process AnimStack tags"
  "Process all AnimStack tags"
  "Timofei Shatrov"
- "Copyright 2012-2013"
- "May 19, 2013"
+ "Copyright 2012-2016"
+ "April 13, 2016"
  "RGB RGBA GRAY GRAYA" ;; no layer groups in indexed :(
  SF-IMAGE     "Image to use"       0
  )
