@@ -536,6 +536,15 @@ recurses down a layer group even if it passes the test"
      (multicall f1 f2 f3 f4))))
 
 
+(define (layerscript-grow-feather-fill img params)
+  (with-params
+   ((steps 1) ((radius pint) 1) ((color color) 0))
+   (let* ((f1 (layerscript-alpha img '()))
+          (f2 (layerscript-grow img (make-plist steps)))
+          (f3 (layerscript-feather img (make-plist radius)))
+          (f4 (layerscript-fill img (make-plist color))))
+     (multicall f1 f2 f3 f4))))
+
 ;; layer actions
 
 (define (layerscript-opacity img params)
@@ -603,6 +612,7 @@ recurses down a layer group even if it passes the test"
     ("clear" ,layerscript-clear)
     ("blurshape" ,layerscript-blurshape)
     ("dropshadow" ,layerscript-dropshadow)
+    ("gff" ,layerscript-grow-feather-fill)
     
     ("opacity" ,layerscript-opacity)
     ("move" ,layerscript-move-layer)
