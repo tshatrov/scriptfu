@@ -16,12 +16,17 @@
                           (else (cons (car slist) (loop (cdr slist))))))))
     (list->string reslist)))
 
+(define (re-re-match re string buffer)
+  "Workaround GIMP 2.10 bug https://gitlab.gnome.org/GNOME/gimp/issues/2965"
+  (and (re-match re string)
+       (re-match re string buffer)))
+
 (define (elp-replace-once string tokens)
   (if (null? tokens) (cons "%" string)
       (let* ((token-re (string-append "^" (caar tokens)))
              (token-val-fn (cdar tokens))
              (buffer (make-vector 1)))
-        (if (re-match token-re string buffer)
+        (if (re-re-match token-re string buffer)
             (let* ((boundaries (vector-ref buffer 0))
                    (token (substring string (car boundaries) (cdr boundaries)))
                    (rest (substring string (cdr boundaries) (string-length string))))
@@ -137,7 +142,7 @@
 (define (elp-get-delay layer)
   (let* ((buffer (make-vector 2))
          (layer-name (car (gimp-item-get-name layer))))
-    (if (re-match "\\((\\d+)ms\\)" layer-name buffer)
+    (if (re-re-match "\\((\\d+)ms\\)" layer-name buffer)
         (let* ((boundaries (vector-ref buffer 1))
                (ldelay (string->number (substring layer-name (car boundaries) (cdr boundaries)))))
           (if (= ldelay 0) *elp-default-frame-rate* ldelay))
