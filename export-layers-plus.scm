@@ -35,7 +35,7 @@
           ((char=? (car slist) #\%)
            (let ((res (elp-replace-once (list->string (cdr slist)) tokens)))
              (loop (string->list (cdr res)) (string-append result (car res)))))
-          (else 
+          (else
            (loop (cdr slist) (string-append result (make-string 1 (car slist))))))))
 
 (define (elp-generic-val-fn value)
@@ -65,7 +65,7 @@
         (count 0))
     (if (= walk-direction 0) (set! layers (reverse layers)))
     (for-each
-     (lambda (layer) 
+     (lambda (layer)
        (if (or (not test) (test layer)) (fn count layer))
        (set! count (+ count 1)))
      layers)))
@@ -97,7 +97,7 @@
 
 (define (elp-walk-layers-filtered walk-direction img layer-filter fn)
   (elp-walk-layers
-   walk-direction img 
+   walk-direction img
    (cond ((= layer-filter 0) #f)
          ((= layer-filter 1) (lambda (layer) (elp-is-true? gimp-item-get-visible layer)))
          ((= layer-filter 2) (lambda (layer) (elp-is-true? gimp-item-get-linked layer))))
@@ -107,7 +107,7 @@
   ;;; DOESNT APPLY LAYER MASKS!
   (elp-walk-layers-filtered
    walk-direction img layer-filter
-   (lambda (count layer) 
+   (lambda (count layer)
      (elp-export-layer img img-name path filename-template (+ count count-offset) layer))))
 
 (define (elp-index-export img img-name path filename-template count-offset index)
@@ -127,7 +127,7 @@
               (loop (cdr layers)))))))
 
 (define (elp-apply-masks img)
-  (elp-vector-for-each 
+  (elp-vector-for-each
    (lambda (layer)
      (let ((mask (car (gimp-layer-get-mask layer))))
        (if (not (= mask -1)) (gimp-layer-remove-mask layer MASK-APPLY))))
@@ -153,7 +153,7 @@
 
 
 (define (elp-process-timeline timeline frame-rate)
-  (let* ((make-empty-frame 
+  (let* ((make-empty-frame
           (lambda () (list frame-rate)))
          (fill-frame
           (lambda (frame tll)
@@ -163,7 +163,7 @@
               (cond ((= remaining 0) #t)
                     ((>= available remaining)
                      (set-car! frame 0)
-                     (set-cdr! frame (cons (cons (car tll) remaining) (cdr frame))) 
+                     (set-cdr! frame (cons (cons (car tll) remaining) (cdr frame)))
                      (set-cdr! tll (- available remaining))
                      #t)
                     (else
@@ -180,11 +180,11 @@
                (curframe (make-empty-frame)))
       (if (pair? tl)
           (if (fill-frame curframe (car tl))
-              (loop (if (= (cdar tl) 0) (cdr tl) tl) 
+              (loop (if (= (cdar tl) 0) (cdr tl) tl)
                     (cons (reverse-frame curframe) ptl)
                     (make-empty-frame))
               (loop (cdr tl) ptl curframe))
-          (reverse 
+          (reverse
            (if (pair? (cdr curframe))
                (cons curframe ptl)
                ptl))))))
@@ -208,7 +208,7 @@
   "Uses a more precise algorithm than bgmask average layers to deal with transparency
 
 If pair (x, a) represents a pixel with color x and opacity a, the correct interpolation would be:
- (x, a) ~ (y, b) = ((ax+by)/(a+b), (a+b)/2) 
+ (x, a) ~ (y, b) = ((ax+by)/(a+b), (a+b)/2)
 
 However this algorithm (and bgmask's algorithm) do NOT perform correct interpolation because it seems
 too hard to emulate the necessary arithmetic via layer modes.
@@ -231,7 +231,7 @@ to calculate averages.
                      (* (/ w1 (+ w1 w2)) 100)))
         (l1copy (car (gimp-layer-copy layer1 TRUE)))
         (l2copy (car (gimp-layer-copy layer2 TRUE)))
-        (new-from-alpha 
+        (new-from-alpha
          (lambda (layer)
            (let ((newmask (car (gimp-layer-create-mask layer ADD-ALPHA-TRANSFER-MASK)))
                  (masklayer (car (gimp-layer-copy layer TRUE))))
@@ -248,7 +248,7 @@ to calculate averages.
              (gimp-selection-none img)
              (gimp-layer-remove-mask layer MASK-DISCARD)
              masklayer))))
-             
+
     (gimp-image-insert-layer img l2copy 0 0)
     (gimp-image-insert-layer img l1copy 0 0)
     (let* ((ml2 (new-from-alpha l2copy))
@@ -299,12 +299,12 @@ to calculate averages.
 
 (define (script-fu-export-layers-plus img path filename-template
                                       walk-direction count-offset
-                                      layer-filter 
+                                      layer-filter
                                       resample-mode frame-rate
                                       resample-threshold
                                       )
   (let* ((img-name (car (gimp-image-get-name img)))
-         (do-simple-export 
+         (do-simple-export
           (lambda (img)
             (elp-simple-export img img-name path filename-template walk-direction count-offset layer-filter)))
          (simple (not (or (not (= resample-mode 0)) (elp-has-layer-masks img)))))
@@ -313,7 +313,7 @@ to calculate averages.
         (let* ((timg (elp-image-copy img))
                (tempimgs (list timg)))
           (elp-apply-masks timg)
-          (if (= resample-mode 0) 
+          (if (= resample-mode 0)
               (do-simple-export timg)
               (let* ((timeline (elp-get-timeline timg walk-direction layer-filter))
                      (index (elp-resampling-index timg timeline resample-mode frame-rate resample-threshold)))
