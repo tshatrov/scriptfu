@@ -91,7 +91,7 @@
               (hashfn (symbol->string obj)))
              ((else (hashfn (display-to-string obj))))))))
     (lambda (obj) (modulo (hashfn obj) size))))
-                 
+
 (define (make-animstack-hash assoc-list)
   (let* ((size *default-animstack-hash-size*)
          (ah (animstack-hash size (animstack-hashfn size))))
@@ -123,7 +123,7 @@
          (vector-set! visi-status i visible)
          (set! i (+ i 1))))
      layers)
-    ;; flatten each layer group   
+    ;; flatten each layer group
     (vector-for-each
      (lambda (layer)
        (if (is-true? gimp-item-is-group layer)
@@ -163,7 +163,7 @@
   "because you never know..."
   (let ((args (list image item parent position)))
     (catch ;; actually GIMP still displays the error. it doesn't die, but might scare the user
-     (catch #f (apply gimp-image-insert-layer args)) 
+     (catch #f (apply gimp-image-insert-layer args))
      (apply gimp-image-reorder-item args))))
 
 (define (groupify-layer img layer)
@@ -242,14 +242,14 @@ exception as of GIMP 2.8. Returns #f if not a number."
         (if (char=? chr char)
             (begin (set! res (new chunk)) (set! chunk (list)))
             (set! chunk (cons chr chunk)))))))
-         
+
 (define (parse-tag-param-simple str)
   (let ((valid-param (lambda (x) (or (number? x) (symbol? x)))))
     (string2number str valid-param)))
 
 (define (parse-tag-param* str)
   (let ((valid-param (lambda (x) (or (number? x) (symbol? x)))))
-    (if (= (string-length str) 0) 
+    (if (= (string-length str) 0)
         #f
         (or (string2number str valid-param) 'err))))
 
@@ -269,7 +269,7 @@ where tag might be #f"
         ;;this might be legitimate tag
         (let* ((split2 (string-split tagstr #\:))
                (tagname (substring (car split2) 1 (string-length (car split2))))
-               (params (map (if (= (string-length tagname) 0) 
+               (params (map (if (= (string-length tagname) 0)
                                 parse-tag-param-simple ;;don't do ari stuff on label tags
                                 parse-tag-param)
                             (cdr split2)))
@@ -304,7 +304,7 @@ where tag might be #f"
                        (let ((tag (car (parse-animstack-tag (list->string str-list)))))
                          (and tag (or (null? params) ((car params) tag)))))
                   (loop (cdr rest))
-                  (cons (car str-list) (loop (cdr str-list))) 
+                  (cons (car str-list) (loop (cdr str-list)))
                   )))
            (else (cons (car str-list) (loop (cdr str-list))))))))
 
@@ -320,9 +320,9 @@ where tag might be #f"
 
 (define (process-param-list param-list)
   (let ((count 0))
-    (map 
-     (lambda (param-def) 
-       (prog1 
+    (map
+     (lambda (param-def)
+       (prog1
         (if (pair? param-def)
             `(,(car param-def) (or (vector-ref pv ,count) (begin ,@(cdr param-def))))
             `(,param-def (vector-ref pv ,count)))
@@ -359,7 +359,7 @@ where tag might be #f"
   (let ((maxlen (vector-length layers)))
     (lambda (pos)
       (and (< -1 pos maxlen) (vector-ref layers pos)))))
- 
+
 (define (default-copy-name item . prefixargs)
   (let ((prefix (if (pair? prefixargs) (car prefixargs) "* ")))
     (string-append prefix (strip-tags (car (gimp-item-get-name item))))))
@@ -373,7 +373,7 @@ where tag might be #f"
 
 (define (copy-action img source pos opts)
   "Copy source layer and put it into target group at position pos"
-  (let ((copy-name (default-copy-name source))) 
+  (let ((copy-name (default-copy-name source)))
     (lambda (target)
       (let* ((bindings (get-bindings (cadr opts)))
              (apply-effects (apply-effects-simple img (list-ref opts 3)
@@ -410,7 +410,7 @@ where tag might be #f"
 (define animstack-fg (animstack-common 1 0 copy-action))
 
 (define (animstack-copy img layer opts . params)
-  (with-params 
+  (with-params
    ((pos -1) limit)
    (let* ((fn (animstack-common -1 pos copy-action)))
      (fn img layer opts limit))))
@@ -443,7 +443,7 @@ where tag might be #f"
        (repeat-value 1))
   (set! animstack-reset-count
         (lambda () (set! repeat-value 1) (set! repeat-count 0)))
-  (set! animstack-init-count 
+  (set! animstack-init-count
         (lambda (n) (set! count (int-round n)) (set! repeat-count 0)))
   (set! animstack-set-repeat-value
         (lambda (n) (if (= repeat-count 0) (set! repeat-value (int-round n)))))
@@ -484,7 +484,7 @@ where tag might be #f"
 
 (define (animstack-roll img layer opts . params)
   "Rolls a layer stack or a single layer up the layer list in a given position"
-  (with-params 
+  (with-params
    ((pos -1) limit (roll-offset 0))
    (let* ((start (get-start-position img layer opts))
           (layers (cadr (gimp-image-get-layers img)))
@@ -499,7 +499,7 @@ where tag might be #f"
   (gimp-image-remove-layer img layer))
 
 (define (animstack-splice img layer opts . params)
-  (with-params 
+  (with-params
    ((pos -1) (roll-offset 0))
    (let* ((limit (length (get-roll-layer-list layer))))
      (animstack-roll img layer opts pos limit roll-offset))))
@@ -517,7 +517,7 @@ where tag might be #f"
   (if (is-true? gimp-selection-bounds img)
       (set! sel (car (gimp-selection-save img))))
   (gimp-item-set-visible bg-layer FALSE)
-  (gimp-image-select-item img CHANNEL-OP-REPLACE layer) 
+  (gimp-image-select-item img CHANNEL-OP-REPLACE layer)
   (gimp-threshold (car (gimp-image-get-selection img)) 0 threshold)
   (gimp-layer-add-alpha bg-layer)
   (gimp-edit-clear bg-layer)
@@ -526,7 +526,7 @@ where tag might be #f"
 
 ;;TODO: fix terrible copy pasting of copy-action
 (define (matte-action threshold img source pos opts)
-  (let ((copy-name (default-copy-name source))) 
+  (let ((copy-name (default-copy-name source)))
     (lambda (target)
       (let* ((bindings (get-bindings (cadr opts)))
              (apply-effects (apply-effects-simple img (list-ref opts 3)
@@ -543,11 +543,11 @@ where tag might be #f"
   (with-params
    ((threshold 1) limit)
    (let* ((threshold (max threshold 0))
-          (fn (animstack-common -1 -1 
+          (fn (animstack-common -1 -1
                                 (lambda args (apply matte-action threshold args)))))
      (fn img layer opts limit))))
- 
-;; delete 
+
+;; delete
 (define (delete-action-factory step width)
   (lambda (img source pos opts)
     (let ((count 0))
@@ -622,7 +622,7 @@ where tag might be #f"
       (set! target (put-layer-in-group img new target realpos gimp-image-insert-layer))
       (process-dup-options* opts img bindings target (dup-getter img new))
       (if replace
-          (let ((test (if interval 
+          (let ((test (if interval
                           (lambda (i) (<= (+ (car interval) shift) i (+ (cdr interval) shift)))
                           (lambda (i) (not (= i 0))))))
             (vector-for-each-i
@@ -656,7 +656,7 @@ where tag might be #f"
         (gimp-layer-set-offsets fl (car offsets) (cadr offsets))
         (gimp-floating-sel-anchor fl)))
   (animstack-restore-selection img))
-        
+
 (define (animstack-linear-transition count coords1 coords2)
   (if (> count 0)
       (let* ((avg (lambda (i n)
@@ -672,16 +672,16 @@ where tag might be #f"
              (dzx (di 2))
              (dzy (di 3)))
         (lambda (n)
-          (let* ((newcoords (if (= n count) 
+          (let* ((newcoords (if (= n count)
                                 coords2
                                 (let loop ((i 0))
                                   (if (< i 4) (cons (avg i n) (loop (+ i 1)))))))
-                 (motion (if (= n count) 
+                 (motion (if (= n count)
                              (list 0 0 0 0 #t)
                              (let ((cw (list-ref newcoords 2))
                                    (ch (list-ref newcoords 3)))
-                               (list (/ (+ dx (/ dzx 2)) cw) 
-                                     (/ (+ dy (/ dzy 2)) ch) 
+                               (list (/ (+ dx (/ dzx 2)) cw)
+                                     (/ (+ dy (/ dzy 2)) ch)
                                      (/ dzx (- cw dzx))
                                      (/ dzy (- ch dzy))
                                      #f)))))
@@ -694,10 +694,10 @@ where tag might be #f"
          (first-val (list (car nodes) (list 0 0 0 0 #t))))
     (cond
      ((< count m) (error (string-append "Too many nodes: "
-                                        (number->string m) 
-                                        ", no more than count=" 
+                                        (number->string m)
+                                        ", no more than count="
                                         (number->string count)
-                                        " allowed."))) 
+                                        " allowed.")))
      ((or (= m 1) (= count 1)) (lambda (n) first-val))
      (else
       (do ((i 0 (+ i 1))) ((>= i (- m 1)))
@@ -761,9 +761,9 @@ where tag might be #f"
   (set! animstack-reset-motion (lambda () (set! motion (list 0 0 0 0 #f))))
   (set! animstack-set-motion (lambda (new-motion) (set! motion new-motion))))
 
-(define (sampler-action img temp-layer source path 
+(define (sampler-action img temp-layer source path
                             pos opts roll-mode)
-  (let* ((roll-list (if (>= roll-mode 0) 
+  (let* ((roll-list (if (>= roll-mode 0)
                         (get-roll-layer-list source)
                         (list source)))
          (roll-length (length roll-list))
@@ -823,7 +823,7 @@ where tag might be #f"
             (node-layers #f))
        (if (= src-count 0) (error "Empty sampler"))
        (set! source (vector-ref srcs (- src-count 1)))
-       
+
        (if (< count 0) (set! count (length (get-roll-layer-list source))))
        (if (or (not limit) (<= limit 0) (> limit count)) (set! limit count))
 
@@ -832,20 +832,20 @@ where tag might be #f"
        (let ((source-offsets (gimp-drawable-offsets source))
              (source-width (car (gimp-drawable-width source)))
              (source-height (car (gimp-drawable-height source))))
-         (gimp-image-resize img (+ (car source-offsets) source-width) 
+         (gimp-image-resize img (+ (car source-offsets) source-width)
                             (+ (cadr source-offsets) source-height) 0 0))
-       (set! node-layers 
+       (set! node-layers
              (if (= src-count 1) (list source)
                  (cdr (reverse (vector->list srcs)))))
        (set! temp-layer (make-temp-sampler-layer img group width height))
        (animstack-reset-count)
        ;; before effects are applied to temp layer
-       (for-each 
+       (for-each
         (lambda (effect) (effect img temp-layer #f (list) #f))
         (list-ref opts 2))
        (let* ((nodes (map get-layer-coords node-layers))
               (path (animstack-linear-path count nodes))
-              (action (sampler-action img temp-layer source path 
+              (action (sampler-action img temp-layer source path
                                       pos opts roll-mode))
               (tl (list-ref (car opts) 2)))
          (layer-walk getter start next is-untagged? action limit #t tl))
@@ -877,7 +877,7 @@ where tag might be #f"
                        (cur-source from))
                   (for-each
                    (lambda (el)
-                     (if (car el) 
+                     (if (car el)
                          (branch-out branch-from el
                                      (if (= branch-from from) before-effects '())
                                      during-effects)
@@ -896,14 +896,14 @@ where tag might be #f"
 
 (define (process-dup-options* opts . rest)
   (let ((dup-options (get-dup-opts opts)))
-    (if dup-options (apply process-dup-options dup-options rest)))) 
+    (if dup-options (apply process-dup-options dup-options rest))))
 
 (define (get-dup-opts opts)
   (and (> (length opts) 4) (list-ref opts 4)))
 
 (define (get-start-position img layer opts)
   (let ((dup-opts (get-dup-opts opts)))
-    (if dup-opts 
+    (if dup-opts
         (cadar dup-opts)
         (car (gimp-image-get-item-position img layer)))))
 
@@ -956,8 +956,8 @@ where tag might be #f"
   (let* ((cumulative #t)
          (reverse #f)
          (terminate-label #f)
-         (bake 
-          (lambda (str) 
+         (bake
+          (lambda (str)
             (let* ((split (string-split str #\>)))
               (if (= (length split) 2)
                   (begin
@@ -976,7 +976,7 @@ where tag might be #f"
 
 (define *animstack-action-tag-assocs*
   (make-animstack-hash
-   `(("bg" ,animstack-bg) 
+   `(("bg" ,animstack-bg)
      ("fg" ,animstack-fg)
      ("copy" ,animstack-copy)
      ("roll" ,animstack-roll)
@@ -989,7 +989,7 @@ where tag might be #f"
      ("sampler" ,animstack-sampler)
      ("dt" ,animstack-dup-tree)
      )))
-      
+
 (define (animstack-process-tag img layer tag generator-alist before-effects during-effects extra-opts)
   (let* ((tagpair (animstack-parse-tagname (car tag))) ;; (tagname . other opts)
          (tagname (car tagpair))
@@ -1069,7 +1069,7 @@ where tag might be #f"
   (if (null? params) (set! params (list 1)))
   (set! params (reverse params))
   (if (= (or (car params) 0) 0) (set-car! params 1))
-  (generator 
+  (generator
    (let ((result 0))
      (for-each
       (lambda (k) (set! result (+ (* result x) (or k 0))))
@@ -1080,11 +1080,11 @@ where tag might be #f"
   (if (null? params) (set! params (list 1)))
   (set! params (reverse params))
   (if (= (or (car params) 0) 0) (set-car! params 1))
-  (generator 
+  (generator
    (let ((result 0)
          (m (length params)))
      (for-each
-      (lambda (k) 
+      (lambda (k)
         (set! result (+ (* result x) (* m (or k 0))))
         (set! m (- m 1)))
       params)
@@ -1138,7 +1138,7 @@ where tag might be #f"
               (and gen-assoc
                    (or (check-tag-params (cdr curtag) number?)
                        (error "Generator tag parameters must be numbers"))
-                   (set! alist 
+                   (set! alist
                          (cons (list var (adjust-generator-fn defnlist ((cadr gen-assoc) (cdr curtag))))
                                alist)))))))))
 
@@ -1252,7 +1252,7 @@ where tag might be #f"
         #f))
 
 (define (animstack-scatter img params)
-  "scatter:mode - mode can be 
+  "scatter:mode - mode can be
   <= 0 (default) - moves the layer randomly so it doesn't go outside the borders of the image
    > 0 - moves layer randomly so that part of it is still within image
 
@@ -1336,7 +1336,7 @@ where tag might be #f"
                (let* ((motion (animstack-get-motion))
                       (corner? (list-ref motion 4))
                       (oldname (car (gimp-item-get-name target)))
-                      (newname (add-frame-delay oldname 
+                      (newname (add-frame-delay oldname
                                                 (if corner? corner-delay frame-delay))))
                  (gimp-item-set-name target newname))))
          #t)))
@@ -1431,7 +1431,7 @@ where tag might be #f"
              (if (= new-height 0)
                  (begin (set! new-height 1)
                         (gimp-item-set-visible layer FALSE)))
-             (gimp-layer-resize layer new-width new-height 
+             (gimp-layer-resize layer new-width new-height
                                 (- ox new-ox) (- oy new-oy))))
          #f)))
 
@@ -1446,7 +1446,7 @@ where tag might be #f"
                   (new-height (max 1 (* height vscale))))
              (gimp-layer-scale layer new-width new-height TRUE)))
          #f)))
-    
+
 (define (animstack-stretch img params)
   (with-params
    ((dwidth 0) (dheight 0))
@@ -1496,9 +1496,9 @@ where tag might be #f"
            ((or (= angle 90)
                 (= angle 180)
                 (= angle 270))
-            (set! fn 
+            (set! fn
                   (fn (lambda (layer)
-                        (gimp-item-transform-rotate-simple 
+                        (gimp-item-transform-rotate-simple
                          layer (- (/ angle 90) 1) TRUE 0 0)))))
            (else
             (set! angle (/ (* *pi* angle) 180))
@@ -1547,7 +1547,7 @@ where tag might be #f"
    applies a mask based on alpha of target layer at position *from*."
   (with-params
    (from)
-   (let ((mask-from 
+   (let ((mask-from
           (lambda (layer target from)
             (animstack-save-selection img)
             (let ((source (get-layer-in-group target (int-round from))))
@@ -1672,7 +1672,7 @@ where tag might be #f"
    (cons (lambda (layer target)
            (if lower
                (gimp-threshold layer lower upper)
-               (begin 
+               (begin
                  (gimp-threshold layer 0 255)
                  (gimp-invert layer))))
          #f)))
@@ -1724,7 +1724,7 @@ where tag might be #f"
 ;; end
 
 (define (resolve-bindings params bindings)
-  (let ((resolve-symbol 
+  (let ((resolve-symbol
          (lambda (p)
            (if (symbol? p)
                (let ((binding (assoc p bindings)))
@@ -1831,7 +1831,7 @@ where tag might be #f"
   (map-filter (lambda (tag) (process-effect-tag tag normal)) tags))
 
 ;; Main processing
-                   
+
 (define (sort-animstack-tags tags)
   (let ((action-tags (list))
         (generator-tags (list))
@@ -1845,7 +1845,7 @@ where tag might be #f"
                   ((memv #\= (string->list cur-tag-name))
                    (loop (cdr tail))
                    (set! generator-tags (cons cur-tag generator-tags)))
-                  (else 
+                  (else
                    (let ((chr (string-ref cur-tag-name 0)))
                      (cond ((char=? chr #\!)
                             (loop (cdr tail))
@@ -1880,7 +1880,7 @@ where tag might be #f"
                                  (if dup-options (list dup-options) '()))))))
 
 (define (is-multiply-tag? tag)
-  (let ((name (car tag)))      
+  (let ((name (car tag)))
     (and (null? (cdr tag))
          (> (string-length name) 1)
          (char=? (string-ref name 0) #\*)
@@ -1910,8 +1910,8 @@ where tag might be #f"
 (define animstack-copy-layer-labels #f)
 
 (let ((label-hash (make-animstack-hash '()))
-      (label-tag-symbol 
-       (lambda (tag) 
+      (label-tag-symbol
+       (lambda (tag)
          (if (null? (cdr tag))
              (string->symbol "")
              (cadr tag)))))
@@ -1932,7 +1932,7 @@ where tag might be #f"
 (define (animstack-process-all-layers img)
   (srand (realtime))
   (gimp-image-undo-group-start img)
-  (let ((layers (cadr (gimp-image-get-layers img)))) 
+  (let ((layers (cadr (gimp-image-get-layers img))))
     ;; make everylayer visible. this is because it might be extremely
     ;; annoying to make them visible again after everything is jumbled up
     (vector-for-each
@@ -1946,7 +1946,7 @@ where tag might be #f"
              (labeltags (extract-animstack-tags layer is-label-tag?)))
          (if (pair? labeltags)
              (gimp-item-set-name layer (strip-tags (car (gimp-item-get-name layer)) is-label-tag?)))
-         (if (pair? tags) 
+         (if (pair? tags)
              (let ((newlayer (process-multiply-tag img layer (car tags))))
                (set! layer newlayer)))
          (if (and layer (pair? labeltags)) (animstack-set-layer-labels layer labeltags))))
@@ -2000,7 +2000,7 @@ where tag might be #f"
   (let ((group (car (gimp-layer-group-new img)))
         (pos 0))
     (insert-layer-above-selected img group)
-    (walk-layers-recursive 
+    (walk-layers-recursive
      img (lambda (layer) (is-true? gimp-item-get-linked layer))
      (lambda (layer)
        (catch #f ;;prevent crash on reordering layer group into one of its children
@@ -2016,7 +2016,7 @@ where tag might be #f"
   (let ((group (car (gimp-layer-group-new img)))
         (pos 0))
     (insert-layer-above-selected img group)
-    (walk-layers-recursive 
+    (walk-layers-recursive
      img (lambda (layer) (is-true? gimp-item-get-linked layer))
      (lambda (layer)
        (gimp-item-set-linked layer FALSE)
@@ -2028,13 +2028,13 @@ where tag might be #f"
 
 (define (script-fu-unpack-layer-group img group)
   (if (is-true? gimp-item-is-group group)
-      (begin 
+      (begin
         (gimp-image-undo-group-start img)
         (let ((layers (cadr (gimp-item-get-children group)))
               (parent (car (gimp-item-get-parent group)))
               (pos (car (gimp-image-get-item-position img group))))
           (if (< parent 0) (set! parent 0))
-          (vector-for-each 
+          (vector-for-each
            (lambda (layer)
              (gimp-image-reorder-item img layer parent pos)
              (set! pos (+ pos 1)))
@@ -2101,8 +2101,8 @@ where tag might be #f"
            (let ((new (car (gimp-layer-copy layer FALSE))))
              (gimp-image-insert-layer img new parent 0)))
          (lambda (layer i)
-           (if (< (* 2 i) (- len 1)) 
-               (animstack-swap-layers img layer 
+           (if (< (* 2 i) (- len 1))
+               (animstack-swap-layers img layer
                                       (vector-ref layers (- len i 1)) parent))))
      layers)))
 
@@ -2120,7 +2120,7 @@ where tag might be #f"
 (define (script-fu-reverse-mirror-layers img drw mode ignore-tagged)
   (let ((parent (car (gimp-item-get-parent drw)))
         (layers #f))
-    (cond ((= parent -1) 
+    (cond ((= parent -1)
            (set! parent 0)
            (set! layers (cadr (gimp-image-get-layers img))))
           (else
@@ -2147,5 +2147,5 @@ where tag might be #f"
  SF-OPTION "Operation" '("Reverse" "Mirror")
  SF-TOGGLE "Ignore tagged layers" 0
  )
- 
+
 (script-fu-menu-register "script-fu-reverse-mirror-layers" "<Image>/Image")
