@@ -1573,9 +1573,13 @@ where tag might be #f"
            (gimp-layer-set-opacity layer opacity))
          #f)))
 
+(define (angle-constraint angle)
+  (- angle (* (floor (/ angle 360)) 360)))
+
 (define (descartes-to-blur-params dx dy)
   (cons (sqrt (+ (* dx dx) (* dy dy)))
-        (if (= dx dy 0) 0 (/ (* 180 (atan (- dy) (- dx))) *pi*))))
+        (angle-constraint
+         (if (= dx dy 0) 0 (/ (* 180 (atan (- dy) (- dx))) *pi*)))))
 
 ;; motion blur
 (define (animstack-mb img params)
@@ -1613,7 +1617,7 @@ where tag might be #f"
                       (height (car (gimp-drawable-height layer)))
                       (x (* cx width))
                       (y (* cy height)))
-                 (plug-in-mblur 1 img layer 1 0 angle x y))))
+                 (plug-in-mblur 1 img layer 1 0 (angle-constraint angle) x y))))
          #f)))
 
 ;; gaussian blur
