@@ -1,6 +1,6 @@
 ;;; GIMP Animation Tools
 ;;; by Timofei Shatrov
-;;; v. 0.62
+;;; v. 0.63
 
 (define (display-to-string value)
   "Prints anything to string using display function"
