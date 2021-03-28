@@ -1,6 +1,6 @@
 ;;; GIMP Animation Tools
 ;;; by Timofei Shatrov
-;;; v. 0.63
+;;; v. 0.64
 
 (define (display-to-string value)
   "Prints anything to string using display function"
@@ -518,7 +518,11 @@ where tag might be #f"
       (set! sel (car (gimp-selection-save img))))
   (gimp-item-set-visible bg-layer FALSE)
   (gimp-image-select-item img CHANNEL-OP-REPLACE layer)
-  (gimp-threshold (car (gimp-image-get-selection img)) 0 threshold)
+  (let ((chl (car (gimp-selection-save img))))
+    (gimp-selection-none img)
+    (gimp-drawable-threshold chl HISTOGRAM-VALUE 0 (/ threshold 255))
+    (gimp-image-select-item img CHANNEL-OP-REPLACE chl)
+    (gimp-image-remove-channel img chl))
   (gimp-layer-add-alpha bg-layer)
   (gimp-edit-clear bg-layer)
   (gimp-item-set-visible bg-layer TRUE)
