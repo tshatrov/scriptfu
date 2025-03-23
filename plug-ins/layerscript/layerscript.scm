@@ -1,5 +1,5 @@
 ;;; LayerScript - persistent layer effects for GIMP
-;;; v. 0.1
+;;; v. 0.2
 
 (define lscr (make-environment
 
@@ -60,22 +60,22 @@ exception as of GIMP 2.8. Returns #f if not a number."
     (and (< -1 n len) (list-ref lst n))))
 
 (define (get-layer-type img)
-  (let ((base-type (car (gimp-image-base-type img))))
+  (let ((base-type (car (gimp-image-get-base-type img))))
     (case base-type
       ((0) 1)
       ((1) 3))))
 
 (define (make-image-sized-layer img name)
-  (car (gimp-layer-new img
-                       (car (gimp-image-width img))
-                       (car (gimp-image-height img))
+  (car (gimp-layer-new img name
+                       (car (gimp-image-get-width img))
+                       (car (gimp-image-get-height img))
                        (get-layer-type img)
-                       name 100 0)))
+                       100 0)))
 
 (define (walk-layers-recursive-full img test fn)
   "different from walk-layers-recursive from animstack.scm in that it
 recurses down a layer group even if it passes the test"
-  (let loop ((layers (cadr (gimp-image-get-layers img))))
+  (let loop ((layers (car (gimp-image-get-layers img))))
     (vector-for-each
      (lambda (layer)
        (if (or (not test) (test layer)) (fn layer))
@@ -100,7 +100,7 @@ recurses down a layer group even if it passes the test"
           (if (pair? sel)
               (let ((s (car sel)))
                 (if s
-                    (gimp-selection-load s)
+                    (gimp-image-select-item img CHANNEL-OP-REPLACE s)
                     (gimp-selection-none img))))))
 
   (set! restore-selection
@@ -110,7 +110,7 @@ recurses down a layer group even if it passes the test"
                 (set! sel (cdr sel))
                 (if s
                     (begin
-                      (gimp-selection-load s)
+                      (gimp-image-select-item img CHANNEL-OP-REPLACE s)
                       (gimp-image-remove-channel img s))
                     (gimp-selection-none img))))))
   )
@@ -120,6 +120,13 @@ recurses down a layer group even if it passes the test"
     (for-each
      (lambda (fn) (apply fn args))
      fns)))
+
+;; it seems this was deprecated
+(macro (prog1 form)
+  (let ((res (gensym)))
+    `(let ((,res ,(cadr form)))
+       ,@(cddr form)
+       ,res)))
 
 ;; end library
 
@@ -150,7 +157,7 @@ recurses down a layer group even if it passes the test"
 ;; gimp-image-get-layer-by-tattoo
 
 ;; parasites documentation: http://www.mail-archive.com/gimp-user%40lists.xcf.berkeley.edu/msg20099.html
-;; ("parasite-name" 3 "parasite-value") 
+;; ("parasite-name" 3 "parasite-value")
 
 ;; lscrtag-1 : "tattoo1.1 tattoo1.2 ..."
 ;; lscrtag-2 : "tattoo2.1 tattoo2.2 ..."
@@ -159,21 +166,21 @@ recurses down a layer group even if it passes the test"
 
 (define *parasite-prefix* "lscrtag")
 
-(define *layerscript-layer-name-prefix* "LayerScript layer") 
+(define *layerscript-layer-name-prefix* "LayerScript layer")
 
-(define (get-parasite item string)
+(define (get-parasite item name)
   "returns #f when not found"
-  (let ((plist (cadr (gimp-item-get-parasite-list item))))
-    (and (member string plist)
-         (car (gimp-item-get-parasite item string)))))
+  (let ((plist (car (gimp-item-get-parasite-list item))))
+    (and (member name plist)
+         (car (gimp-item-get-parasite item name)))))
 
 (define (set-parasite item name value)
   (gimp-item-attach-parasite item (list name 3 value)))
 
 (define (remove-parasite item name)
-  (let ((plist (cadr (gimp-item-get-parasite-list item))))
-    (and (member string plist)
-         (gimp-item-detach-parasite item string))))
+  (let ((plist (car (gimp-item-get-parasite-list item))))
+    (and (member name plist)
+         (gimp-item-detach-parasite item name))))
 
 (define (get-layer-by-tattoo img tat)
   (and tat
@@ -186,7 +193,7 @@ recurses down a layer group even if it passes the test"
                  " #" (number->string srctat)
                  "." (number->string tag-index)
                  "." (number->string layer-index)))
-  
+
 (define (make-layerscript-layer img pos-layer lname tat)
   (let ((layer (make-image-sized-layer img lname))
         (parent (car (gimp-item-get-parent pos-layer)))
@@ -207,7 +214,7 @@ recurses down a layer group even if it passes the test"
                (prev-tat (list-get tattoo-list (- layer-index 1)))
                (cur-layer (get-layer-by-tattoo img cur-tat))
                (prev-layer (get-layer-by-tattoo img prev-tat)))
-          (if cur-layer 
+          (if cur-layer
               (cons cur-layer #f)
               (begin
                 (if prev-layer (set! pos-layer prev-layer))
@@ -238,8 +245,9 @@ recurses down a layer group even if it passes the test"
           (set-parasite layer pname (color2string fg))
           fg))))
 
-(define (layerscript-modify-color-register img layer n color remove)
-  (let ((pname (string-append *parasite-color-prefix* "-" (number->string n))))
+(define (layerscript-modify-color-register img drawables n color remove)
+  (let ((layer (vector-ref drawables 0))
+        (pname (string-append *parasite-color-prefix* "-" (number->string n))))
     (if (= remove TRUE)
         (remove-parasite layer pname)
         (set-parasite layer pname (color2string color)))))
@@ -285,7 +293,7 @@ recurses down a layer group even if it passes the test"
 
 (define (color-parser s)
   (case (string-ref s 0)
-    ((#\#) 
+    ((#\#)
      (and (= (string-length s) 7)
           (hex2rgb s)))
     ((#\()
@@ -299,7 +307,7 @@ recurses down a layer group even if it passes the test"
     (else (pint-parser s))))
 
 (define *layerscript-selmode-assoc*
-  '(("+" 0) ("add" 0) 
+  '(("+" 0) ("add" 0)
     ("-" 1) ("subtract" 1)
     ("=" 2) ("replace" 2)
     ("^" 3) ("x" 3) ("intersect" 3)))
@@ -328,8 +336,8 @@ recurses down a layer group even if it passes the test"
 
 (define (process-param-list param-list unparsed)
   (let ((count 0))
-    (map 
-     (lambda (param-def) 
+    (map
+     (lambda (param-def)
        (prog1
         (let ((pdef-parser (cons param-def 'int)))
           (if (pair? param-def)
@@ -339,7 +347,7 @@ recurses down a layer group even if it passes the test"
           (if unparsed
               `(,(add-unparsed-sigil (car pdef-parser)) (vector-ref pv ,count))
               (if (and (pair? param-def) (pair? (cdr param-def)))
-                  `(,(car pdef-parser) 
+                  `(,(car pdef-parser)
                     (or (parse-param (vector-ref pv ,count) ',(cdr pdef-parser))
                         (begin ,@(cdr param-def))))
                   `(,(car pdef-parser)
@@ -348,7 +356,7 @@ recurses down a layer group even if it passes the test"
      param-list)))
 
 ;; (with-params (x y z) ....)
-;; 1. param 2. (param default) 3. ((param type)) 4. ((param type) default)   
+;; 1. param 2. (param default) 3. ((param type)) 4. ((param type) default)
 (macro (with-params form)
   (let ((param-list (cadr form))
         (body (cddr form)))
@@ -368,11 +376,11 @@ recurses down a layer group even if it passes the test"
 ;; selection actions
 
 (define (layerscript-alpha img params)
-  (with-params 
+  (with-params
    (((mode selmode) 2))
    (lambda (source target opts)
      (gimp-image-select-item img mode source))))
-  
+
 (define (layerscript-all img params)
   (lambda (source target opts)
     (gimp-selection-all img)))
@@ -410,10 +418,10 @@ recurses down a layer group even if it passes the test"
      (fn img target x y))))
 
 (define (layerscript-move-selection img params)
-  (layerscript-move-core 
+  (layerscript-move-core
    img params
    (lambda (img target x y)
-     (gimp-selection-translate img x y))))  
+     (gimp-selection-translate img x y))))
 
 (define (select-rectangle img op x y width height)
   (gimp-context-set-feather FALSE)
@@ -445,7 +453,7 @@ recurses down a layer group even if it passes the test"
 
 (define (fade-selection img level)
   (let ((sel (car (gimp-image-get-selection img))))
-    (gimp-levels sel 0 0 255 1 0 level)))
+    (gimp-drawable-levels sel 0 0 1 FALSE 1 0 (/ level 255) FALSE)))
 
 (define (layerscript-fade img params)
   (with-params
@@ -474,13 +482,13 @@ recurses down a layer group even if it passes the test"
   (with-params
    (((color color) 0) (check-selection 0))
    (lambda (source target opts)
-     (let ((c (if (pair? color) color 
+     (let ((c (if (pair? color) color
                   (get-color-from-register (caddr opts) color))))
        (when (or (= check-selection 0)
                  (is-true? gimp-selection-bounds img))
              (gimp-context-push)
              (gimp-context-set-foreground c)
-             (gimp-edit-fill target 0)
+             (gimp-drawable-edit-fill target 0)
              (gimp-context-pop))))))
 
 (define (layerscript-clear img params)
@@ -489,7 +497,7 @@ recurses down a layer group even if it passes the test"
    (lambda (source target opts)
      (if (or (= check-selection 0)
                (is-true? gimp-selection-bounds img))
-         (gimp-edit-clear target)))))
+         (gimp-drawable-edit-clear target)))))
 
 (define (layerscript-blurshape img params)
   (with-params
@@ -501,21 +509,21 @@ recurses down a layer group even if it passes the test"
            (k init)
            (i 0))
        (gimp-context-set-foreground curcolor)
-       (while 
+       (while
         (< i size)
         (cond ((> k 0) (gimp-selection-grow img k))
               ((< k 0) (gimp-selection-shrink img (abs k))))
-        
+
         (if (is-true? gimp-selection-bounds img)
             (cond ((= invert 0)
                    (fade-selection img (* (/ 1 (- size i)) 255))
-                   (gimp-edit-fill target 0))
+                   (gimp-drawable-edit-fill target 0))
                   ((= i 0)
                    (fade-selection img (* (/ (- size 1) size) 255))
-                   (gimp-edit-fill target 0))
+                   (gimp-drawable-edit-fill target 0))
                   (else
                    (fade-selection img (* (/ 1 (- size i)) 255))
-                   (gimp-edit-clear target))))
+                   (gimp-drawable-edit-clear target))))
 
         (rollback-selection img)
         (set! k (- k 1))
@@ -526,7 +534,7 @@ recurses down a layer group even if it passes the test"
 
 (define (layerscript-dropshadow img params)
   (with-params
-   (((color color) '(0 0 0)) ((opacity float) 75) ((size pint) 5) 
+   (((color color) '(0 0 0)) ((opacity float) 75) ((size pint) 5)
     ((offset-angle float) 120) ((offset-distance float) 5))
    (let* ((f1 (layerscript-alpha img '()))
           (f2 (layerscript-move-selection img (make-plist offset-distance #f offset-angle)))
@@ -558,10 +566,10 @@ recurses down a layer group even if it passes the test"
 
 (define (layerscript-move-layer img params)
   ;; TODO: ensure idempotency
-  (layerscript-move-core 
+  (layerscript-move-core
    img params
    (lambda (img target x y)
-     (gimp-layer-translate target x y))))
+     (gimp-item-transform-translate target x y))))
 
 (define (layerscript-move-layer-reset img params)
   (lambda (target)
@@ -582,7 +590,7 @@ recurses down a layer group even if it passes the test"
    (lambda (source target opts)
      (set-car! (cdr opts) (if src src (+ (car opts) 1)))
      (set-car! opts (+ (car opts) 1)))))
-         
+
 (define (layerscript-prev img params)
   (with-params
    (((src pint)))
@@ -613,7 +621,7 @@ recurses down a layer group even if it passes the test"
     ("blurshape" ,layerscript-blurshape)
     ("dropshadow" ,layerscript-dropshadow)
     ("gff" ,layerscript-grow-feather-fill)
-    
+
     ("opacity" ,layerscript-opacity)
     ("move" ,layerscript-move-layer)
 
@@ -642,7 +650,7 @@ recurses down a layer group even if it passes the test"
        (lambda (reset)
          (reset layer))
        (cdr resets)))
-  (gimp-edit-clear layer)
+  (gimp-drawable-edit-clear layer)
   (restore-selection img)
   )
 
@@ -686,7 +694,7 @@ recurses down a layer group even if it passes the test"
                            (set! reset-map (cons (list cur-index reset) reset-map))))))))
      tag)
 
-    (for-each 
+    (for-each
      (lambda (action-str)
        (let ((action (parse-action img action-str)))
          (if action
@@ -698,10 +706,10 @@ recurses down a layer group even if it passes the test"
                (when (> layer-index max-index)
                      (set! max-index layer-index)
                      (if (not (cdr gll)) (clear-layer img (car gll) (assv layer-index reset-map))))
-               (let ((source-layer (if (or (= current-source -1) 
+               (let ((source-layer (if (or (= current-source -1)
                                            (> current-source max-index))
                                        layer
-                                      (car (get-linked-layer img layer pos-layer 
+                                      (car (get-linked-layer img layer pos-layer
                                                              tag-index current-source)))))
                  (action source-layer (car gll) opts))))))
      tag)
@@ -721,15 +729,15 @@ recurses down a layer group even if it passes the test"
      tags)
   ))
 
-(define (layerscript-process-all img)
+(define (layerscript-process-all img drawables)
   (srand (realtime))
   (gimp-image-undo-group-start img)
-  (let ((active-layer (car (gimp-image-get-active-layer img))))
-    (walk-layers-recursive-full 
+  (let ((active-layer (car (gimp-image-get-selected-layers img))))
+    (walk-layers-recursive-full
      img #f
      (lambda (layer) (layerscript-process-layer img layer)))
-    (if (not (= active-layer -1))
-        (gimp-image-set-active-layer img active-layer)))
+    (if (not (= (vector-length active-layer) 0))
+        (gimp-image-set-selected-layers img active-layer)))
   (gimp-image-undo-group-end img)
   (gimp-displays-flush))
 
@@ -737,31 +745,30 @@ recurses down a layer group even if it passes the test"
 
 (define script-fu-layerscript-process-all lscr::layerscript-process-all)
 
-(script-fu-register
+(script-fu-register-filter
  "script-fu-layerscript-process-all"
  "Process LayerScript tags"
  "Process all LayerScript tags"
  "Timofei Shatrov"
- "Copyright 2013"
- "July 7, 2013"
- "RGB RGBA GRAY GRAYA" 
- SF-IMAGE     "Image to use"       0
+ "Copyright 2025"
+ "2025"
+ "RGB RGBA GRAY GRAYA"
+ SF-ONE-OR-MORE-DRAWABLE
  )
 
 (script-fu-menu-register "script-fu-layerscript-process-all" "<Image>/Script-Fu/LayerScript")
 
 (define script-fu-layerscript-modify-color-register lscr::layerscript-modify-color-register)
 
-(script-fu-register
+(script-fu-register-filter
  "script-fu-layerscript-modify-color-register"
  "Modify color registers..."
  "Modify a color register attached to active layer"
  "Timofei Shatrov"
- "Copyright 2013"
- "July 8, 2013"
+ "Copyright 2025"
+ "2025"
  "RGB RGBA GRAY GRAYA"
- SF-IMAGE     "Image to use"       0
- SF-DRAWABLE  "Current layer"      0
+ SF-ONE-DRAWABLE
  SF-ADJUSTMENT "Register" '(0 0 255 1 1 0 SF-SPINNER)
  SF-COLOR "Color" '(0 0 0)
  SF-TOGGLE "Clear register" 0
